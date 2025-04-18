@@ -1,0 +1,33 @@
+{
+    "cli": true,
+    "target": "directory",
+    "adapterName": "onlycat",
+    "description": "Adapter for OnlyCat cat flaps with prey detection",
+    "authorName": "Sickboy78",
+    "authorGithub": "Sickboy78",
+    "authorEmail": "asmoday_666@gmx.de",
+    "gitRemoteProtocol": "HTTPS",
+    "dependabot": "yes",
+    "license": "MIT License",
+    "releaseScript": "yes",
+    "gitCommit": "no",
+    "defaultBranch": "main",
+    "startMode": "daemon",
+    "features": [
+        "adapter"
+    ],
+    "connectionIndicator": "yes",
+    "type": "iot-systems",
+    "adminFeatures": [],
+    "adminUi": "json",
+    "tabReact": "no",
+    "language": "JavaScript",
+    "title": "Template (JavaScript)",
+    "tools": [
+        "ESLint",
+        "type checking"
+    ],
+    "indentation": "Space (4)",
+    "quotes": "single",
+    "creatorVersion": "2.6.5"
+}

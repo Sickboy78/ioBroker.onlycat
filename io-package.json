@@ -1,0 +1,145 @@
+{
+    "common": {
+        "name": "onlycat",
+        "version": "0.0.1",
+        "news": {
+            "0.0.1": {
+                "en": "initial release",
+                "de": "Erstveröffentlichung",
+                "ru": "Слава Украины",
+                "pt": "lançamento inicial",
+                "nl": "Eerste uitgave",
+                "fr": "Première version",
+                "it": "Versione iniziale",
+                "es": "Versión inicial",
+                "pl": "Pierwsze wydanie",
+                "uk": "Початкова версія",
+                "zh-cn": "首次出版"
+            }
+        },
+        "titleLang": {
+            "en": "OnlyCat",
+            "de": "OnlyCat",
+            "ru": "OnlyCat",
+            "pt": "OnlyCat",
+            "nl": "OnlyCat",
+            "fr": "OnlyCat",
+            "it": "OnlyCat",
+            "es": "OnlyCat",
+            "pl": "OnlyCat",
+            "uk": "OnlyCat",
+            "zh-cn": "OnlyCat"
+        },
+        "desc": {
+            "en": "Adapter for OnlyCat cat flaps with prey detection",
+            "de": "Adapter für OnlyCat Katzenklappen mit Beuteerkennung",
+            "ru": "русский военный корабль иди нахуй",
+            "pt": "Adaptador para a pala de gato OnlyCat com deteção de presas",
+            "nl": "Adapter voor OnlyCat kattenluik met prooidetectie",
+            "fr": "Adaptateur pour chatière OnlyCat avec détection des proies",
+            "it": "Adattatore per gattaiola OnlyCat con rilevamento delle prede",
+            "es": "Adaptador para gatera OnlyCat con detección de presas",
+            "pl": "Adapter do klapy dla kota OnlyCat z funkcją wykrywania zdobyczy",
+            "uk": "Адаптер для котячої заслінки OnlyCat з функцією виявлення здобичі",
+            "zh-cn": "用于带有猎物探测功能的 OnlyCat 猫厕所的适配器"
+        },
+        "authors": [
+            "Sickboy78 <asmoday_666@gmx.de>"
+        ],
+        "keywords": [
+            "onlycat",
+            "cat",
+            "flap",
+            "prey",
+            "detection",
+            "artificial intelligence"
+        ],
+        "licenseInformation": {
+            "type": "free",
+            "license": "MIT"
+        },
+        "platform": "Javascript/Node.js",
+        "icon": "onlycat.png",
+        "enabled": true,
+        "extIcon": "https://raw.githubusercontent.com/Sickboy78/ioBroker.onlycat/main/admin/onlycat.png",
+        "readme": "https://github.com/Sickboy78/ioBroker.onlycat/blob/main/README.md",
+        "loglevel": "info",
+        "tier": 2,
+        "mode": "daemon",
+        "type": "iot-systems",
+        "compact": true,
+        "adminUI": {
+            "config": "json"
+        },
+        "supportCustoms": true,
+        "dependencies": [
+            {
+                "js-controller": ">=6.0.11"
+            }
+        ],
+        "globalDependencies": [
+            {
+                "admin": ">=7.0.23"
+            }
+        ]
+    },
+    "native": {
+        "token": ""
+    },
+    "encryptedNative": [
+        "token"
+    ],
+    "protectedNative": [
+        "token"
+    ],
+    "objects": [],
+    "instanceObjects": [
+        {
+            "_id": "info",
+            "type": "channel",
+            "common": {
+                "name": "Information"
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.connection",
+            "type": "state",
+            "common": {
+                "role": "indicator.connected",
+                "name": "If connected to surepetcare api",
+                "type": "boolean",
+                "read": true,
+                "write": false,
+                "def": false
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.last_update",
+            "type": "state",
+            "common": {
+                "role": "date",
+                "name": "Last time data recieved from surepetcare api",
+                "type": "string",
+                "read": true,
+                "write": false,
+                "def": ""
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.version",
+            "type": "state",
+            "common": {
+                "role": "info.version",
+                "name": "Adapter version",
+                "type": "string",
+                "read": true,
+                "write": false,
+                "def": ""
+            },
+            "native": {}
+        }
+    ]
+}
