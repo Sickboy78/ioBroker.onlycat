@@ -6,17 +6,12 @@ updates:
       interval: monthly
       time: "04:00"
       timezone: Europe/Berlin
-    open-pull-requests-limit: 5
-    assignees:
-      - Author
+    open-pull-requests-limit: 10
     versioning-strategy: increase
-
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: monthly
       time: "04:00"
       timezone: Europe/Berlin
-    open-pull-requests-limit: 5
-    assignees:
-      - Author
+    open-pull-requests-limit: 10
