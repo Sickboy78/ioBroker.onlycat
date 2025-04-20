@@ -27,6 +27,9 @@ const RETRY_FREQUENCY_CONNECT = 60;
 const EVENT_UPDATE_FREQUENCY = 15;
 // Maximum Event Updates
 const MAX_EVENT_UPDATE = 10;
+// Event Types
+const EVENT_TYPE = {0: 'out', 1: 'in', 2: 'unknown', 3: 'contraband', 4: 'out_no_rfid'};
+const EVENT_TYPE_MAX = 4;
 
 class Template extends utils.Adapter {
 
@@ -199,6 +202,7 @@ class Template extends utils.Adapter {
 			.then(() => this.createAdapterObjectHierarchy())
 			.then(() => this.updateDevices())
 			.then(() => this.updateEvents())
+			.then(() => this.updateLastEvents())
 			.then(() => this.updateAdapterVersion())
 			.then(() => this.subscribeEvents())
 			.catch(error => {
@@ -360,6 +364,7 @@ class Template extends utils.Adapter {
 	getAndUpdateEvents() {
 		this.getEvents()
 			.then(() => this.updateEvents())
+			.then(() => this.updateLastEvents())
 			.catch(error => {
 				if (error === undefined || error.message === undefined || error.message === this.lastError) {
 					this.log.debug(error);
@@ -423,6 +428,30 @@ class Template extends utils.Adapter {
 					});
 			}
 		}));
+	}
+
+	/**
+	 * Checks whether the last received event is final, i.e. has a frameCount
+	 * and schedules an event update if not.
+	 */
+	checkTriggerEventUpdate() {
+		if (this.devices && this.events && this.events.length > 0) {
+			this.log.debug(`Checking if last event is final...`);
+			if(this.events[0].frameCount === undefined || this.events[0].frameCount === null) {
+				if(this.eventUpdateCounter < MAX_EVENT_UPDATE) {
+					this.clearEventUpdateTimer();
+					this.log.info(`Last event not yet final, trigger update in ${EVENT_UPDATE_FREQUENCY} seconds.`);
+					this.eventUpdateCounter++;
+					this.log.debug(`Event update counter: ${this.eventUpdateCounter}.`);
+					this.eventUpdateTimerId = setTimeout(this.onEventUpdateTimer.bind(this), EVENT_UPDATE_FREQUENCY * 1000);
+				} else {
+					this.log.debug(`Last event not yet final, but max event update counter reached: ${this.eventUpdateCounter}.`);
+				}
+			} else {
+				this.log.debug(`Last event is final.`);
+				this.resetEventUpdateCounter();
+			}
+		}
 	}
 
 	/************************************************
@@ -493,6 +522,7 @@ class Template extends utils.Adapter {
 				const objName = this.devices[d].description.toLowerCase();
 				promiseArray.push(this.createEventsAsJsonToAdapter(objName));
 				promiseArray.push(this.createEventsAsStateObjectsToAdapter(objName));
+				promiseArray.push(this.setObjectNotExistsPromise(objName + '.lastEvent', this.buildChannelObject('last event of every rfid')));
 			}
 			Promise.all(promiseArray).then(() => {
 				return resolve();
@@ -514,7 +544,7 @@ class Template extends utils.Adapter {
 			const promiseArray = [];
 			this.setObjectNotExists(objName + '.jsonEvents', this.buildChannelObject('events in json format'), () => {
 				for (let e = 0; e < 10; e++) {
-					promiseArray.push(this.setObjectNotExistsPromise(objName + '.jsonEvents.' + (e + 1), this.buildStateObject('event ' + (e + 1), 'json', 'string')));
+					promiseArray.push(this.setObjectNotExistsPromise(objName + '.jsonEvents.' + this.padZero(e + 1), this.buildStateObject('event ' + (e + 1), 'json', 'string')));
 				}
 				Promise.all(promiseArray).then(() => {
 					return resolve();
@@ -537,7 +567,7 @@ class Template extends utils.Adapter {
 			const promiseArray = [];
 			this.setObjectNotExists(objName + '.events', this.buildChannelObject('events as state objects'), () => {
 				for (let e = 0; e < 10; e++) {
-					promiseArray.push(this.createEventStateObjectsToAdapter(objName + '.events.' + (e + 1), e));
+					promiseArray.push(this.createEventStateObjectsToAdapter(objName + '.events.' + this.padZero(e + 1), 'event ' + (e + 1)));
 				}
 				Promise.all(promiseArray).then(() => {
 					return resolve();
@@ -553,13 +583,13 @@ class Template extends utils.Adapter {
      * Creates an event as state objects
      *
      * @param {string} objName
-     * @param {number} eventIndex
+     * @param {string} description
 	 * @return {Promise}
      */
-	createEventStateObjectsToAdapter(objName, eventIndex) {
+	createEventStateObjectsToAdapter(objName, description) {
 		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
 			const promiseArray = [];
-			this.setObjectNotExists(objName, this.buildFolderObject('event ' + (eventIndex + 1)), () => {
+			this.setObjectNotExists(objName, this.buildFolderObject(description), () => {
 				promiseArray.push(this.setObjectNotExistsPromise(objName + '.accessToken', this.buildStateObject('Access token', 'text', 'string')));
 				promiseArray.push(this.setObjectNotExistsPromise(objName + '.deviceId', this.buildStateObject('Device ID', 'text', 'string')));
 				promiseArray.push(this.setObjectNotExistsPromise(objName + '.eventClassification', this.buildStateObject('Event classification', 'text', 'number')));
@@ -643,17 +673,8 @@ class Template extends utils.Adapter {
 							for (let e = 0; e < this.events.length; e++) {
 								if (this.events[e].deviceId === this.devices[d].deviceId) {
 									if (eventNumber <= 10) {
-										this.setState(objName + '.jsonEvents.' + eventNumber, JSON.stringify(this.events[e]), true);
-										this.setState(objName + '.events.' + eventNumber + '.accessToken', this.events[e].accessToken, true);
-										this.setState(objName + '.events.' + eventNumber + '.deviceId', this.events[e].deviceId, true);
-										this.setState(objName + '.events.' + eventNumber + '.eventClassification', this.events[e].eventClassification, true);
-										this.setState(objName + '.events.' + eventNumber + '.eventId', this.events[e].eventId, true);
-										this.setState(objName + '.events.' + eventNumber + '.eventTriggerSource', this.events[e].eventTriggerSource, true);
-										this.setState(objName + '.events.' + eventNumber + '.frameCount', this.events[e].frameCount, true);
-										this.setState(objName + '.events.' + eventNumber + '.globalId', this.events[e].globalId, true);
-										this.setState(objName + '.events.' + eventNumber + '.posterFrameIndex', this.events[e].posterFrameIndex, true);
-										this.setState(objName + '.events.' + eventNumber + '.rfidCodes', JSON.stringify(this.events[e].rfidCodes), true);
-										this.setState(objName + '.events.' + eventNumber + '.timestamp', this.events[e].timestamp, true);
+										this.setEventJsonToAdapter(objName + '.jsonEvents.' + this.padZero(eventNumber), e);
+										this.setEventStatesToAdapter(objName + '.events.' + this.padZero(eventNumber), e);
 										eventNumber++;
 									}
 								}
@@ -675,24 +696,161 @@ class Template extends utils.Adapter {
 		}));
 	}
 
-	checkTriggerEventUpdate() {
-		if (this.devices && this.events && this.events.length > 0) {
-			this.log.debug(`Checking if last event is final...`);
-			if(this.events[0].frameCount === undefined || this.events[0].frameCount === null) {
-				if(this.eventUpdateCounter < MAX_EVENT_UPDATE) {
-					this.clearEventUpdateTimer();
-					this.log.info(`Last event not yet final, trigger update in ${EVENT_UPDATE_FREQUENCY} seconds.`);
-					this.eventUpdateCounter++;
-					this.log.debug(`Event update counter: ${this.eventUpdateCounter}.`);
-					this.eventUpdateTimerId = setTimeout(this.onEventUpdateTimer.bind(this), EVENT_UPDATE_FREQUENCY * 1000);
+	/**
+	 * Sets the event at the given index as json to the given object.
+	 *
+	 * @param {string} objName the object to set the json to
+	 * @param {number} eventIndex the event index
+	 */
+	setEventJsonToAdapter(objName, eventIndex) {
+		this.setState(objName, JSON.stringify(this.events[eventIndex]), true);
+	}
+
+	/**
+	 * Sets the event at the given index as states to the given object.
+	 *
+	 * @param {string} objName the object to set the states to
+	 * @param {number} eventIndex the event index
+	 */
+	setEventStatesToAdapter(objName, eventIndex) {
+		this.setState(objName + '.accessToken', this.events[eventIndex].accessToken, true);
+		this.setState(objName + '.deviceId', this.events[eventIndex].deviceId, true);
+		this.setState(objName + '.eventClassification', this.events[eventIndex].eventClassification, true);
+		this.setState(objName + '.eventId', this.events[eventIndex].eventId, true);
+		this.setState(objName + '.eventTriggerSource', this.events[eventIndex].eventTriggerSource, true);
+		this.setState(objName + '.frameCount', this.events[eventIndex].frameCount, true);
+		this.setState(objName + '.globalId', this.events[eventIndex].globalId, true);
+		this.setState(objName + '.posterFrameIndex', this.events[eventIndex].posterFrameIndex, true);
+		this.setState(objName + '.rfidCodes', JSON.stringify(this.events[eventIndex].rfidCodes), true);
+		this.setState(objName + '.timestamp', this.events[eventIndex].timestamp, true);
+	}
+
+	/**
+	 * Creates and sets the last events for a given rfid to the adapter
+	 *
+	 * @param {string} objName
+	 * @param {any} lastEvents
+	 * @param {string} rfidCode
+	 * @return {Promise<void>}
+	 */
+	setLastEventsForRfidToAdapter(objName, lastEvents, rfidCode) {
+		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
+			this.setObjectNotExists(objName, this.buildFolderObject('last events for \'' + rfidCode + '\''), () => {
+				const promiseArray = [];
+				for(let t = 0; t <= EVENT_TYPE_MAX; t++) {
+					if(EVENT_TYPE[t] in lastEvents) {
+						promiseArray.push(this.setLastEventForRfidAndEventTypeToAdapter(objName + '.' + EVENT_TYPE[t], EVENT_TYPE[t], lastEvents[EVENT_TYPE[t]].eventIndex, rfidCode));
+					}
+				}
+				Promise.all(promiseArray).then(() => {
+					return resolve();
+				}).catch(error => {
+					this.log.warn(`Could not set last events for rfid (${error}).`);
+					return reject();
+				});
+			});
+		}));
+	}
+
+	/**
+	 * Creates the state objects and sets the state values for a last event of a given event type for a given rfid
+	 *
+	 * @param {string} objName
+	 * @param {string} eventType
+	 * @param {number} eventIndex
+	 * @param {string} rfidCode
+	 * @return {Promise<void>}
+	 */
+	setLastEventForRfidAndEventTypeToAdapter(objName, eventType, eventIndex, rfidCode) {
+		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
+			this.createEventStateObjectsToAdapter(objName, 'last \'' + eventType + '\' event for \'' + rfidCode + '\'')
+				.then(() => {
+					this.setEventStatesToAdapter(objName, eventIndex);
+					this.setObjectNotExists(objName + '.json', this.buildStateObject('event json', 'json', 'string'), () => {
+						this.setEventJsonToAdapter(objName + '.json', eventIndex);
+						return resolve();
+					});
+				}).catch(error => {
+					this.log.warn(`Could not create last event for rfid '${rfidCode}' event type '${eventType}' (${error}).`);
+					return reject();
+				});
+		}));
+	}
+
+	/**
+	 * Updates the last events per rfid and event type
+	 *
+	 * @return {Promise<void>}
+	 */
+	updateLastEvents() {
+		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
+			if (this.devices) {
+				if (this.events) {
+					this.log.info(`Updating last events...`);
+					const promiseArray = [];
+					const lastEvents = this.calculateLastEvents();
+					for (let d = 0; d < this.devices.length; d++) {
+						if(d in lastEvents) {
+							for (let r = 0; r < lastEvents[d].rfidCodes.length; r++) {
+								const rfidCode = lastEvents[d].rfidCodes[r];
+								promiseArray.push(this.setLastEventsForRfidToAdapter(this.devices[d].description.toLowerCase() + '.lastEvent.' + rfidCode, lastEvents[d][rfidCode], rfidCode));
+							}
+						}
+					}
+					Promise.all(promiseArray).then(() => {
+						this.log.info(`Last events updated.`);
+						return resolve();
+					}).catch(error => {
+						this.log.warn(`Could not update last events (${error}).`);
+						return reject();
+					});
 				} else {
-					this.log.debug(`Last event not yet final, but max event update counter reached: ${this.eventUpdateCounter}.`);
+					return reject(new Error(`no event data found.`));
 				}
 			} else {
-				this.log.debug(`Last event is final.`);
-				this.resetEventUpdateCounter();
+				return reject(new Error(`no device data found.`));
+			}
+		}));
+	}
+
+	/**
+	 * Calculates the last events per rfid
+	 *
+	 * @return {any} an object with last events per rfid
+	 */
+	calculateLastEvents() {
+		const lastEvents = {};
+		this.log.debug(`Calculating last events...`);
+		for (let d = 0; d < this.devices.length; d++) {
+			for (let e = 0; e < this.events.length; e++) {
+				if (this.events[e].deviceId === this.devices[d].deviceId) {
+					if(!(d in lastEvents)) {
+						lastEvents[d] = {};
+						lastEvents[d].rfidCodes = [];
+					}
+					for(let r = 0; r < this.events[e].rfidCodes.length; r++) {
+						const rfidCode = this.events[e].rfidCodes[r];
+						if(!lastEvents[d].rfidCodes.includes(rfidCode)) {
+							lastEvents[d].rfidCodes.push(rfidCode);
+							lastEvents[d][rfidCode] = {};
+						}
+						const eventType = EVENT_TYPE[this.events[e].eventClassification];
+						if(!(eventType in lastEvents[d][rfidCode])) {
+							lastEvents[d][rfidCode][eventType] = this.events[e];
+							lastEvents[d][rfidCode][eventType].eventIndex = e;
+						} else {
+							if(new Date(lastEvents[d][rfidCode][eventType].timestamp) < new Date(this.events[e].timestamp)) {
+								lastEvents[d][rfidCode][eventType] = this.events[e];
+								lastEvents[d][rfidCode][eventType].eventIndex = e;
+							}
+						}
+					}
+				}
 			}
 		}
+		this.log.debug(`Last events calculated.`);
+		this.log.debug(`Last events: '${JSON.stringify(lastEvents)}'.`);
+		return lastEvents;
 	}
 
 	/**
@@ -910,6 +1068,17 @@ class Template extends utils.Adapter {
 			},
 			native: {}
 		};
+	}
+
+	/**
+	 * Adds a leading 0 to a number if it is smaller then 10
+	 *
+	 * @param {number} num
+	 * @return {string}
+	 */
+	padZero(num) {
+		const norm = Math.floor(Math.abs(num));
+		return (norm < 10 ? '0' : '') + norm;
 	}
 
 }
