@@ -95,6 +95,53 @@
     "objects": [],
     "instanceObjects": [
         {
+            "_id": "control",
+            "type": "channel",
+            "common": {
+                "name": "Control"
+            },
+            "native": {}
+        },
+        {
+            "_id": "control.disconnect",
+            "type": "state",
+            "common": {
+                "role": "button",
+                "name": "Disconnect from OnlyCat API",
+                "type": "boolean",
+                "read": false,
+                "write": true,
+                "def": false
+            },
+            "native": {}
+        },
+        {
+            "_id": "control.reconnect",
+            "type": "state",
+            "common": {
+                "role": "button",
+                "name": "Reconnect to OnlyCat API",
+                "type": "boolean",
+                "read": false,
+                "write": true,
+                "def": false
+            },
+            "native": {}
+        },
+        {
+            "_id": "control.getEvents",
+            "type": "state",
+            "common": {
+                "role": "button",
+                "name": "Get events from OnlyCat API",
+                "type": "boolean",
+                "read": false,
+                "write": true,
+                "def": false
+            },
+            "native": {}
+        },
+        {
             "_id": "info",
             "type": "channel",
             "common": {
@@ -116,11 +163,11 @@
             "native": {}
         },
         {
-            "_id": "info.last_update",
+            "_id": "info.lastUpdate",
             "type": "state",
             "common": {
                 "role": "date",
-                "name": "Last time data recieved from surepetcare api",
+                "name": "Last time data received from surepetcare api",
                 "type": "string",
                 "read": true,
                 "write": false,

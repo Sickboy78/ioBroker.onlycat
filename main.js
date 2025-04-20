@@ -15,13 +15,18 @@
 const utils = require('@iobroker/adapter-core');
 
 // Load your modules here, e.g.:
-// const fs = require("fs");
 const util = require('util');
 const OnlyCatApi = require('./lib/onlycat-api');
 
+// Constants
+// Adapter version
 const ADAPTER_VERSION = '0.0.1';
-// Constants - data update frequency
+// Reconnect frequency
 const RETRY_FREQUENCY_CONNECT = 60;
+// Event Update frequency
+const EVENT_UPDATE_FREQUENCY = 15;
+// Maximum Event Updates
+const MAX_EVENT_UPDATE = 10;
 
 class Template extends utils.Adapter {
 
@@ -36,42 +41,54 @@ class Template extends utils.Adapter {
 
 		this.api = new OnlyCatApi(this);
 		this.connectionStatusSubcription = undefined;
+		this.userSubscription = undefined;
 
 		// class variables
 		// reconnect timer
-		this.timerId = undefined;
-		// adapter unloaded
+		this.reconnectTimerId = undefined;
+		// event update timer
+		this.eventUpdateTimerId = undefined;
+		// event update counter
+		this.eventUpdateCounter = 0;
+		// adapter unloaded indicator
 		this.adapterUnloaded = false;
 		// last error
 		this.lastError = undefined;
+		// is automatic reconnecting
+		this.reconnecting = false;
 
-		/* current and previous data from onlycat API */
+		/* current and previous data from OnlyCat API */
 		// list of devices
-		this.devices = {};
+		this.devices = undefined;
 		// list of events
-		this.events = {};
+		this.events = undefined;
+		// list of previous events
+		this.lastEvents = undefined;
+		// current user
+		this.currentUser = undefined;
 
 		// promisify setObjectNotExists
 		this.setObjectNotExistsPromise = util.promisify(this.setObjectNotExists);
 
 		this.on('ready', this.onReady.bind(this));
-		//this.on('stateChange', this.onStateChange.bind(this));
+		this.on('stateChange', this.onStateChange.bind(this));
 		// this.on('objectChange', this.onObjectChange.bind(this));
 		// this.on('message', this.onMessage.bind(this));
 		this.on('unload', this.onUnload.bind(this));
 	}
 
 	/**
-     * Is called when databases are connected and adapter received configuration.
+     * Is called when databases are connected and adapter received configuration
      */
 	async onReady() {
-		// Initialize your adapter here
-
 		// Reset the connection indicator during startup
 		this.setConnectionStatusToAdapter(false);
 
 		// check adapter config for invalid values
 		this.checkAdapterConfig();
+
+		// subscribe to control state changes
+		this.subscribeStates('control.*');
 
 		// connect to OnlyCat API via socket.io and retrieve data
 		this.log.debug(`Starting OnlyCat Adapter v` + ADAPTER_VERSION);
@@ -80,17 +97,16 @@ class Template extends utils.Adapter {
 
 	/**
      * Is called when adapter shuts down - callback has to be called under any circumstances!
+	 *
      * @param {() => void} callback
      */
 	onUnload(callback) {
 		try {
 			this.adapterUnloaded = true;
-			clearTimeout(this.timerId);
-			this.timerId = undefined;
-			if(this.connectionStatusSubcription !== undefined) {
-				this.connectionStatusSubcription.unsubscribe();
-				this.connectionStatusSubcription = undefined;
-			}
+			this.unsubscribeEvents();
+			this.clearReconnectTimer();
+			this.clearEventUpdateTimer();
+			this.clearSubscriptions();
 			this.api.closeConnection();
 			this.setConnectionStatusToAdapter(false);
 			this.log.info(`everything cleaned up`);
@@ -118,20 +134,34 @@ class Template extends utils.Adapter {
 	//     }
 	// }
 
-	// /**
-	//  * Is called if a subscribed state changes
-	//  * @param {string} id
-	//  * @param {ioBroker.State | null | undefined} state
-	//  */
-	// onStateChange(id, state) {
-	//     if (state) {
-	//         // The state was changed
-	//         this.log.info(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
-	//     } else {
-	//         // The state was deleted
-	//         this.log.info(`state ${id} deleted`);
-	//     }
-	// }
+	/**
+	 * Is called if a subscribed state changes
+	 *
+	 * @param {string} id
+	 * @param {ioBroker.State | null | undefined} state
+	 */
+	onStateChange(id, state) {
+		if (id && state && state.ack === false) {
+			const pathElements = id.split('.');
+			const group = pathElements[pathElements.length - 2];
+			const control = pathElements[pathElements.length - 1];
+			if(group === 'control') {
+				if( control === 'disconnect') {
+					this.log.info(`Disconnect Button pressed: ${state.val}`);
+					this.api.disconnectSocket();
+				} else if(control === 'reconnect') {
+					this.log.info(`Reconnect Button pressed: ${state.val}`);
+					this.api.disconnectEngine();
+				} else if(control === 'getEvents') {
+					this.log.info(`GetEvents Button pressed: ${state.val}`);
+					this.getAndUpdateEvents();
+				}
+			}
+
+			// The state was changed
+			this.log.info(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
+		}
+	}
 
 	// If you need to accept messages in your adapter, uncomment the following block and the corresponding line in the constructor.
 	// /**
@@ -156,13 +186,11 @@ class Template extends utils.Adapter {
 	 ****************************************************************/
 
 	/**
-	 * starts loading data from the OnlyCat API
+	 * Starts loading data from the OnlyCat API
 	 */
 	connectToApiAndStartRetrievingData() {
-		if(this.timerId !== undefined) {
-			clearTimeout(this.timerId);
-			this.timerId = undefined;
-		}
+		this.clearReconnectTimer();
+		this.clearEventUpdateTimer();
 		this.setConnectionStatusToAdapter(false);
 		this.log.info(`Connecting...`);
 		this.connectToApi()
@@ -182,7 +210,7 @@ class Template extends utils.Adapter {
 				}
 				this.setConnectionStatusToAdapter(false);
 				this.log.info(`Disconnected.`);
-				this.reconnect();
+				this.reconnectToApi();
 			});
 	}
 
@@ -190,23 +218,31 @@ class Template extends utils.Adapter {
      * methods to communicate with OnlyCat API *
      *******************************************/
 
+	/**
+	 * Initializes the connection to OnlyCat API
+	 *
+	 * @return {Promise<void>}
+	 */
 	connectToApi() {
 		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
+			// set connection state to STARTING
+			this.api.prepareConnection();
 			const connectingSubscription = this.api.connectionState$.subscribe(connectionState => {
 				if(connectionState === this.api.ConnectionState.Disconnected) {
-					this.log.debug(`New initial connection state: '${connectionState}'`);
 					connectingSubscription.unsubscribe();
+					this.log.debug(`New initial connection state: '${connectionState}'`);
 					this.api.closeConnection();
 					reject(`Connection to OnlyCat API failed.`);
 				}
 				if(connectionState === this.api.ConnectionState.Connected) {
+					connectingSubscription.unsubscribe();
 					this.setConnectionStatusToAdapter(true);
 					this.log.info(`Connected.`);
-					connectingSubscription.unsubscribe();
-					if(this.connectionStatusSubcription !== undefined) {
-						this.connectionStatusSubcription.unsubscribe();
-					}
+					this.resetEventUpdateCounter();
+					this.clearConnectionStateSubscription();
+					this.clearUserSubscription();
 					this.connectionStatusSubcription = this.api.connectionState$.subscribe(connectionState => this.onConnectionStateChange(connectionState));
+					this.userSubscription = this.api.user$.subscribe(user => this.onUserChange(user));
 					resolve();
 				} else {
 					this.log.debug(`New initial connection state: '${connectionState}'`);
@@ -217,6 +253,23 @@ class Template extends utils.Adapter {
 	}
 
 	/**
+     * User change handler
+	 *
+     * @param {any} user
+     */
+	onUserChange(user) {
+		if (user !== undefined) {
+			this.log.debug(`User changed${user.id ? ' for user: ' + user.id : ''}.`);
+			if(this.currentUser !== undefined) {
+				this.log.info(`User changed, getting Events.`);
+				this.resetEventUpdateCounter();
+				this.getAndUpdateEvents();
+			}
+			this.currentUser = user;
+		}
+	}
+
+	/**
 	 * Connection state change handler
 	 *
      * @param {string} connectionState
@@ -224,39 +277,42 @@ class Template extends utils.Adapter {
 	onConnectionStateChange(connectionState) {
 		this.log.debug(`New connection state: '${connectionState}'`);
 		if(connectionState === this.api.ConnectionState.Connected) {
-			if(this.timerId !== undefined) {
-				clearTimeout(this.timerId);
-				this.timerId = undefined;
+			this.clearReconnectTimer();
+			if(this.reconnecting) {
+				this.reconnecting = false;
 			}
 		}
 		if(connectionState === this.api.ConnectionState.Disconnected) {
 			this.log.info(`Disconnected.`);
-			this.reconnect();
+			this.clearEventUpdateTimer();
+			this.reconnectToApi();
 		}
 	}
 
-	reconnect() {
+	/**
+	 * Reconnects to OnlyCat API
+	 */
+	reconnectToApi() {
 		if (!this.adapterUnloaded) {
 			if (this.api.isReconnecting()) {
 				this.log.info(`Automatic Reconnecting is active.`);
+				//this.log.info(`Setting reconnecting to 'true'.`);
+				this.reconnecting = true;
 			} else {
-				if(this.connectionStatusSubcription !== undefined) {
-					this.connectionStatusSubcription.unsubscribe();
-				}
+				this.clearReconnectTimer();
+				this.resetEventUpdateCounter();
+				this.clearConnectionStateSubscription();
+				this.currentUser = undefined;
 				this.api.closeConnection();
 				this.log.info(`Reconnecting in ${RETRY_FREQUENCY_CONNECT} seconds.`);
-				if(this.timerId !== undefined) {
-					clearTimeout(this.timerId);
-					this.timerId = undefined;
-				}
 				// @ts-ignore
-				this.timerId = setTimeout(this.connectToApiAndStartRetrievingData.bind(this), RETRY_FREQUENCY_CONNECT * 1000);
+				this.reconnectTimerId = setTimeout(this.connectToApiAndStartRetrievingData.bind(this), RETRY_FREQUENCY_CONNECT * 1000);
 			}
 		}
 	}
 
 	/**
-	 * subscribe to events
+	 * Subscribe to events
 	 *
 	 * @return {Promise}
 	 */
@@ -270,13 +326,49 @@ class Template extends utils.Adapter {
 	}
 
 	/**
-     * Handles received events
+	 * Unsubscribe from events
+	 */
+	unsubscribeEvents() {
+		this.log.info(`Unsubscribing from events...`);
+		this.api.unsubscribeFromEvent('userEventUpdate');
+		this.log.info(`Events unsubscribed.`);
+	}
+
+	/**
+	 * Handles received events
 	 *
-     * @param {any} data
-     */
+	 * @param {any} data
+	 */
 	onEventReceived(data) {
-		this.log.info(`Received Event: ${JSON.stringify(data)}`);
-		this.getEvents().then(() => this.updateEvents());
+		this.log.info(`Received event update.`);
+		this.log.debug(`Received event update: ${JSON.stringify(data)}`);
+		this.resetEventUpdateCounter();
+		this.getAndUpdateEvents();
+	}
+
+	/**
+	 * Handles event update timer
+	 */
+	onEventUpdateTimer() {
+		this.log.info(`Event update timer triggered.`);
+		this.getAndUpdateEvents();
+	}
+
+	/**
+	 * Gets and updates events
+	 */
+	getAndUpdateEvents() {
+		this.getEvents()
+			.then(() => this.updateEvents())
+			.catch(error => {
+				if (error === undefined || error.message === undefined || error.message === this.lastError) {
+					this.log.debug(error);
+				} else {
+					this.log.error(error);
+					this.lastError = error.message;
+				}
+				this.log.warn(`Event update failed.`);
+			});
 	}
 
 	/***************************************************
@@ -284,43 +376,52 @@ class Template extends utils.Adapter {
 	 ***************************************************/
 
 	/**
-     * get devices
+     * Get devices from OnlyCat API
      *
      * @return {Promise}
      */
 	getDevices() {
 		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
-			this.log.info(`Getting devices...`);
-			this.api.request('getDevices',{ subscribe: true})
-				.then((response) => {
-					this.devices = response;
-					this.log.info(this.devices.length === 1 ? `Got 1 device.` : `Got ${this.devices.length} devices.`);
-					this.log.debug(`Getting devices response: '${JSON.stringify(response)}'.`);
-					return resolve();
-				})
-				.catch(error => {
-					reject(error);
-				});
+			if(this.adapterUnloaded) {
+				reject(`Can not get devices, adapter already unloaded.`);
+			} else {
+				this.log.info(`Getting devices...`);
+				this.api.request('getDevices', {subscribe: true})
+					.then((response) => {
+						this.devices = response;
+						this.log.info(this.devices.length === 1 ? `Got 1 device.` : `Got ${this.devices.length} devices.`);
+						this.log.debug(`Getting devices response: '${JSON.stringify(response)}'.`);
+						return resolve();
+					})
+					.catch(error => {
+						reject(error);
+					});
+			}
 		}));
 	}
 
 	/**
-     * get events
+     * Get events from OnlyCat API
      *
      * @return {Promise}
      */
 	getEvents() {
 		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
-			this.log.info(`Getting events...`);
-			this.api.request('getEvents',{ subscribe: true})
-				.then((response) => {
-					this.events = response;
-					this.log.info(this.events.length <= 1 ? `Got ${this.events.length} event.` : `Got ${this.events.length} events.`);
-					return resolve();
-				})
-				.catch(error => {
-					reject(error);
-				});
+			if(this.adapterUnloaded) {
+				reject(`Can not get events, adapter already unloaded.`);
+			} else {
+				this.log.info(`Getting events...`);
+				this.api.request('getEvents', {subscribe: true})
+					.then((response) => {
+						this.lastEvents = this.events;
+						this.events = response;
+						this.log.info(this.events.length <= 1 ? `Got ${this.events.length} event.` : `Got ${this.events.length} events.`);
+						return resolve();
+					})
+					.catch(error => {
+						reject(error);
+					});
+			}
 		}));
 	}
 
@@ -329,7 +430,7 @@ class Template extends utils.Adapter {
 	 ************************************************/
 
 	/**
-	 * creates the adapters object hierarchy
+	 * Creates the adapters object hierarchy
 	 *
 	 * @return {Promise}
 	 */
@@ -350,7 +451,7 @@ class Template extends utils.Adapter {
 	}
 
 	/**
-     * creates device hierarchy data structures in the adapter
+     * Creates device hierarchy data structures in the adapter
      *
      * @return {Promise}
      */
@@ -381,7 +482,7 @@ class Template extends utils.Adapter {
 	}
 
 	/**
-     * creates event hierarchy data structures in the adapter
+     * Creates event hierarchy data structures in the adapter
      *
      * @return {Promise}
      */
@@ -403,7 +504,7 @@ class Template extends utils.Adapter {
 	}
 
 	/**
-     * creates events as json
+     * Creates events as json
 	 *
 	 * @param {string} objName
 	 * @return {Promise}
@@ -426,7 +527,7 @@ class Template extends utils.Adapter {
 	}
 
 	/**
-     * creates events as state objects
+     * Creates events as state objects
 	 *
 	 * @param {string} objName
 	 * @return {Promise}
@@ -449,7 +550,7 @@ class Template extends utils.Adapter {
 	}
 
 	/**
-     * creates an event as state objects
+     * Creates an event as state objects
      *
      * @param {string} objName
      * @param {number} eventIndex
@@ -503,7 +604,7 @@ class Template extends utils.Adapter {
 	 ****************************************/
 
 	/**
-     * update devices with the received data
+     * Update devices with the received data
      *
      * @return {Promise}
      */
@@ -526,7 +627,7 @@ class Template extends utils.Adapter {
 	}
 
 	/**
-     * update events with the received data
+     * Update events with the received data
      *
      * @return {Promise}
      */
@@ -535,30 +636,35 @@ class Template extends utils.Adapter {
 			this.log.info(`Updating events...`);
 			if (this.devices) {
 				if (this.events) {
-					for (let d = 0; d < this.devices.length; d++) {
-						let eventNumber = 1;
-						const objName = this.devices[d].description.toLowerCase();
-						for (let e = 0; e < this.events.length; e++) {
-							if(this.events[e].deviceId === this.devices[d].deviceId) {
-								if(eventNumber <= 10) {
-									this.setState(objName + '.jsonEvents.' + eventNumber, JSON.stringify(this.events[e]), true);
-									this.setState(objName + '.events.' + eventNumber + '.accessToken', this.events[e].accessToken, true);
-									this.setState(objName + '.events.' + eventNumber + '.deviceId', this.events[e].deviceId, true);
-									this.setState(objName + '.events.' + eventNumber + '.eventClassification', this.events[e].eventClassification, true);
-									this.setState(objName + '.events.' + eventNumber + '.eventId', this.events[e].eventId, true);
-									this.setState(objName + '.events.' + eventNumber + '.eventTriggerSource', this.events[e].eventTriggerSource, true);
-									this.setState(objName + '.events.' + eventNumber + '.frameCount', this.events[e].frameCount, true);
-									this.setState(objName + '.events.' + eventNumber + '.globalId', this.events[e].globalId, true);
-									this.setState(objName + '.events.' + eventNumber + '.posterFrameIndex', this.events[e].posterFrameIndex, true);
-									this.setState(objName + '.events.' + eventNumber + '.rfidCodes', JSON.stringify(this.events[e].rfidCodes), true);
-									this.setState(objName + '.events.' + eventNumber + '.timestamp', this.events[e].timestamp, true);
-									eventNumber++;
+					if (!this.lastEvents || JSON.stringify(this.events) !== JSON.stringify(this.lastEvents)) {
+						for (let d = 0; d < this.devices.length; d++) {
+							let eventNumber = 1;
+							const objName = this.devices[d].description.toLowerCase();
+							for (let e = 0; e < this.events.length; e++) {
+								if (this.events[e].deviceId === this.devices[d].deviceId) {
+									if (eventNumber <= 10) {
+										this.setState(objName + '.jsonEvents.' + eventNumber, JSON.stringify(this.events[e]), true);
+										this.setState(objName + '.events.' + eventNumber + '.accessToken', this.events[e].accessToken, true);
+										this.setState(objName + '.events.' + eventNumber + '.deviceId', this.events[e].deviceId, true);
+										this.setState(objName + '.events.' + eventNumber + '.eventClassification', this.events[e].eventClassification, true);
+										this.setState(objName + '.events.' + eventNumber + '.eventId', this.events[e].eventId, true);
+										this.setState(objName + '.events.' + eventNumber + '.eventTriggerSource', this.events[e].eventTriggerSource, true);
+										this.setState(objName + '.events.' + eventNumber + '.frameCount', this.events[e].frameCount, true);
+										this.setState(objName + '.events.' + eventNumber + '.globalId', this.events[e].globalId, true);
+										this.setState(objName + '.events.' + eventNumber + '.posterFrameIndex', this.events[e].posterFrameIndex, true);
+										this.setState(objName + '.events.' + eventNumber + '.rfidCodes', JSON.stringify(this.events[e].rfidCodes), true);
+										this.setState(objName + '.events.' + eventNumber + '.timestamp', this.events[e].timestamp, true);
+										eventNumber++;
+									}
 								}
 							}
 						}
+						this.log.info(`Events updated.`);
+						this.setLastUpdateToAdapter();
+					} else {
+						this.log.info(`No change in events, nothing to update.`);
 					}
-					this.log.info(`Events updated.`);
-					this.setLastUpdateToAdapter();
+					this.checkTriggerEventUpdate();
 					return resolve();
 				} else {
 					return reject(new Error(`no event data found.`));
@@ -569,8 +675,28 @@ class Template extends utils.Adapter {
 		}));
 	}
 
+	checkTriggerEventUpdate() {
+		if (this.devices && this.events && this.events.length > 0) {
+			this.log.debug(`Checking if last event is final...`);
+			if(this.events[0].frameCount === undefined || this.events[0].frameCount === null) {
+				if(this.eventUpdateCounter < MAX_EVENT_UPDATE) {
+					this.clearEventUpdateTimer();
+					this.log.info(`Last event not yet final, trigger update in ${EVENT_UPDATE_FREQUENCY} seconds.`);
+					this.eventUpdateCounter++;
+					this.log.debug(`Event update counter: ${this.eventUpdateCounter}.`);
+					this.eventUpdateTimerId = setTimeout(this.onEventUpdateTimer.bind(this), EVENT_UPDATE_FREQUENCY * 1000);
+				} else {
+					this.log.debug(`Last event not yet final, but max event update counter reached: ${this.eventUpdateCounter}.`);
+				}
+			} else {
+				this.log.debug(`Last event is final.`);
+				this.resetEventUpdateCounter();
+			}
+		}
+	}
+
 	/**
-	 * updates the adapter version state on the first update loop
+	 * Updates the adapter version state
 	 *
 	 * @return {Promise}
 	 */
@@ -580,18 +706,18 @@ class Template extends utils.Adapter {
 				this.setAdapterVersionToAdapter(ADAPTER_VERSION);
 				return resolve();
 			} else {
-				return reject(new Error(`cannot set adapter version. Adapter already unloaded.`));
+				return reject(new Error(`Cannot set adapter version. Adapter already unloaded.`));
 			}
 		}));
 	}
 
 	/**
-	 * sets the current adapter version to the adapter
+	 * Sets the adapter version to the adapter
 	 *
 	 * @param {string} version
 	 */
 	setAdapterVersionToAdapter(version) {
-		this.log.silly(`setting adapter version to adapter`);
+		this.log.debug(`setting adapter version to adapter`);
 
 		/* objects created via io-package.json, no need to create them here */
 		this.setState('info.version', version, true);
@@ -603,7 +729,7 @@ class Template extends utils.Adapter {
      * @param {boolean} connected
      */
 	setConnectionStatusToAdapter(connected) {
-		this.log.silly(`setting connection status to adapter`);
+		this.log.debug(`setting connection status to adapter`);
 
 		/* objects created via io-package.json, no need to create them here	*/
 		this.setState('info.connection', connected, true);
@@ -613,10 +739,10 @@ class Template extends utils.Adapter {
 	 * sets the last time data was received from OnlyCat API
 	 */
 	setLastUpdateToAdapter() {
-		this.log.silly(`setting last update to adapter`);
+		this.log.debug(`setting last update to adapter`);
 
 		/* object created via io-package.json, no need to create them here */
-		this.setState('info.last_update', new Date().toISOString(), true);
+		this.setState('info.lastUpdate', new Date().toISOString(), true);
 	}
 
 	/******************
@@ -624,7 +750,65 @@ class Template extends utils.Adapter {
 	 ******************/
 
 	/**
-     * checks and logs the values of the adapter configuration and sets default values in case of invalid values
+	 * Resets the event update counter
+	 */
+	resetEventUpdateCounter() {
+		if(this.eventUpdateCounter > 0) {
+			this.log.debug(`Reset event update counter to 0 (was ${this.eventUpdateCounter}).`);
+			this.eventUpdateCounter = 0;
+		}
+	}
+
+	/**
+	 * Clears the reconnect timer
+	 */
+	clearReconnectTimer() {
+		if(this.reconnectTimerId !== undefined) {
+			clearTimeout(this.reconnectTimerId);
+			this.reconnectTimerId = undefined;
+		}
+	}
+
+	/**
+	 * Clears the event update timer
+	 */
+	clearEventUpdateTimer() {
+		if(this.eventUpdateTimerId !== undefined) {
+			clearTimeout(this.eventUpdateTimerId);
+			this.eventUpdateTimerId = undefined;
+		}
+	}
+
+	/**
+	 * Clears the connection state and user subscription
+	 */
+	clearSubscriptions() {
+		this.clearConnectionStateSubscription();
+		this.clearUserSubscription();
+	}
+
+	/**
+	 * Clears the connection state subscription
+	 */
+	clearConnectionStateSubscription() {
+		if(this.connectionStatusSubcription !== undefined) {
+			this.connectionStatusSubcription.unsubscribe();
+			this.connectionStatusSubcription = undefined;
+		}
+	}
+
+	/**
+	 * Clears the user subscription
+	 */
+	clearUserSubscription() {
+		if(this.userSubscription !== undefined) {
+			this.userSubscription.unsubscribe();
+			this.userSubscription = undefined;
+		}
+	}
+
+	/**
+     * Checks and logs the values of the adapter configuration
      */
 	checkAdapterConfig() {
 		// The adapters config (in the instance object everything under the attribute "native") is accessible via
@@ -643,7 +827,7 @@ class Template extends utils.Adapter {
 	}
 
 	/**
-	 * builds a state object
+	 * Builds a state object
 	 *
 	 * @param {string} name
 	 * @param {string} role
@@ -678,7 +862,7 @@ class Template extends utils.Adapter {
 	}
 
 	/**
-	 * builds a device object
+	 * Builds a device object
 	 *
 	 * @param {string} name
 	 * @return {object}
@@ -695,7 +879,7 @@ class Template extends utils.Adapter {
 	}
 
 	/**
-	 * builds a channel object
+	 * Builds a channel object
 	 *
 	 * @param {string} name
 	 * @return {object}
@@ -712,7 +896,7 @@ class Template extends utils.Adapter {
 	}
 
 	/**
-	 * builds a folder object
+	 * Builds a folder object
 	 *
 	 * @param {string} name
 	 * @return {object}
