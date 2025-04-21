@@ -184,9 +184,9 @@ class Template extends utils.Adapter {
 	//     }
 	// }
 
-	/****************************************************************
-	 * methods to start and keep communicating with the OnlyCat API *
-	 ****************************************************************/
+	/*******************************************
+	 * methods to communicate with OnlyCat API *
+	 *******************************************/
 
 	/**
 	 * Starts loading data from the OnlyCat API
@@ -202,7 +202,7 @@ class Template extends utils.Adapter {
 			.then(() => this.createAdapterObjectHierarchy())
 			.then(() => this.updateDevices())
 			.then(() => this.updateEvents())
-			.then(() => this.updateLastEvents())
+			.then(() => this.updateLatestEvents())
 			.then(() => this.updateAdapterVersion())
 			.then(() => this.subscribeEvents())
 			.catch(error => {
@@ -217,10 +217,6 @@ class Template extends utils.Adapter {
 				this.reconnectToApi();
 			});
 	}
-
-	/*******************************************
-     * methods to communicate with OnlyCat API *
-     *******************************************/
 
 	/**
 	 * Initializes the connection to OnlyCat API
@@ -257,44 +253,7 @@ class Template extends utils.Adapter {
 	}
 
 	/**
-     * User change handler
-	 *
-     * @param {any} user
-     */
-	onUserChange(user) {
-		if (user !== undefined) {
-			this.log.debug(`User changed${user.id ? ' for user: ' + user.id : ''}.`);
-			if(this.currentUser !== undefined) {
-				this.log.info(`User changed, getting Events.`);
-				this.resetEventUpdateCounter();
-				this.getAndUpdateEvents();
-			}
-			this.currentUser = user;
-		}
-	}
-
-	/**
-	 * Connection state change handler
-	 *
-     * @param {string} connectionState
-     */
-	onConnectionStateChange(connectionState) {
-		this.log.debug(`New connection state: '${connectionState}'`);
-		if(connectionState === this.api.ConnectionState.Connected) {
-			this.clearReconnectTimer();
-			if(this.reconnecting) {
-				this.reconnecting = false;
-			}
-		}
-		if(connectionState === this.api.ConnectionState.Disconnected) {
-			this.log.info(`Disconnected.`);
-			this.clearEventUpdateTimer();
-			this.reconnectToApi();
-		}
-	}
-
-	/**
-	 * Reconnects to OnlyCat API
+	 * Reconnects to OnlyCat API after a disconnect
 	 */
 	reconnectToApi() {
 		if (!this.adapterUnloaded) {
@@ -338,6 +297,44 @@ class Template extends utils.Adapter {
 		this.log.info(`Events unsubscribed.`);
 	}
 
+
+	/**
+     * User change handler
+	 *
+     * @param {any} user
+     */
+	onUserChange(user) {
+		if (user !== undefined) {
+			this.log.debug(`User changed${user.id ? ' for user: ' + user.id : ''}.`);
+			if(this.currentUser !== undefined) {
+				this.log.info(`User changed, getting Events.`);
+				this.resetEventUpdateCounter();
+				this.getAndUpdateEvents();
+			}
+			this.currentUser = user;
+		}
+	}
+
+	/**
+	 * Connection state change handler
+	 *
+     * @param {string} connectionState
+     */
+	onConnectionStateChange(connectionState) {
+		this.log.debug(`New connection state: '${connectionState}'`);
+		if(connectionState === this.api.ConnectionState.Connected) {
+			this.clearReconnectTimer();
+			if(this.reconnecting) {
+				this.reconnecting = false;
+			}
+		}
+		if(connectionState === this.api.ConnectionState.Disconnected) {
+			this.log.info(`Disconnected.`);
+			this.clearEventUpdateTimer();
+			this.reconnectToApi();
+		}
+	}
+
 	/**
 	 * Handles received events
 	 *
@@ -364,7 +361,7 @@ class Template extends utils.Adapter {
 	getAndUpdateEvents() {
 		this.getEvents()
 			.then(() => this.updateEvents())
-			.then(() => this.updateLastEvents())
+			.then(() => this.updateLatestEvents())
 			.catch(error => {
 				if (error === undefined || error.message === undefined || error.message === this.lastError) {
 					this.log.debug(error);
@@ -375,10 +372,6 @@ class Template extends utils.Adapter {
 				this.log.warn(`Event update failed.`);
 			});
 	}
-
-	/***************************************************
-	 * methods to get information from the surepet API *
-	 ***************************************************/
 
 	/**
      * Get devices from OnlyCat API
@@ -465,15 +458,16 @@ class Template extends utils.Adapter {
 	 */
 	createAdapterObjectHierarchy() {
 		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
-			this.log.debug(`Creating device hierarchy...`);
+			this.log.debug(`Creating object hierarchy...`);
 			this.createDevicesToAdapter()
 				.then(() => this.createEventsToAdapter())
+				.then(() => this.createPetsToAdapter())
 				.then(() => {
-					this.log.debug(`Device hierarchy created.`);
+					this.log.debug(`Object hierarchy created.`);
 					return resolve();
 				})
 				.catch(() => {
-					this.log.error(`Creating device hierarchy failed.`);
+					this.log.error(`Creating object hierarchy failed.`);
 					return reject();
 				});
 		}));
@@ -511,10 +505,10 @@ class Template extends utils.Adapter {
 	}
 
 	/**
-     * Creates event hierarchy data structures in the adapter
-     *
-     * @return {Promise}
-     */
+	 * Creates event hierarchy data structures in the adapter
+	 *
+	 * @return {Promise}
+	 */
 	createEventsToAdapter() {
 		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
 			const promiseArray = [];
@@ -522,12 +516,32 @@ class Template extends utils.Adapter {
 				const objName = this.devices[d].description.toLowerCase();
 				promiseArray.push(this.createEventsAsJsonToAdapter(objName));
 				promiseArray.push(this.createEventsAsStateObjectsToAdapter(objName));
-				promiseArray.push(this.setObjectNotExistsPromise(objName + '.lastEvent', this.buildChannelObject('last event of every rfid')));
 			}
 			Promise.all(promiseArray).then(() => {
 				return resolve();
 			}).catch(error => {
 				this.log.warn(`Could not create adapter events hierarchy (${error}).`);
+				return reject();
+			});
+		}));
+	}
+
+	/**
+	 * Creates pet hierarchy data structures in the adapter
+	 *
+	 * @return {Promise}
+	 */
+	createPetsToAdapter() {
+		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
+			const promiseArray = [];
+			for (let d = 0; d < this.devices.length; d++) {
+				const objName = this.devices[d].description.toLowerCase();
+				promiseArray.push(this.setObjectNotExistsPromise(objName + '.pets', this.buildChannelObject('status und latest events for pets')));
+			}
+			Promise.all(promiseArray).then(() => {
+				return resolve();
+			}).catch(error => {
+				this.log.warn(`Could not create adapter pets hierarchy (${error}).`);
 				return reject();
 			});
 		}));
@@ -726,34 +740,39 @@ class Template extends utils.Adapter {
 	}
 
 	/**
-	 * Creates and sets the last events for a given rfid to the adapter
+	 * Creates and sets the latest events for a given pet rfid to the adapter
 	 *
 	 * @param {string} objName
-	 * @param {any} lastEvents
+	 * @param {any} latestEvents
 	 * @param {string} rfidCode
 	 * @return {Promise<void>}
 	 */
-	setLastEventsForRfidToAdapter(objName, lastEvents, rfidCode) {
+	setLastEventsForRfidToAdapter(objName, latestEvents, rfidCode) {
 		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
-			this.setObjectNotExists(objName, this.buildFolderObject('last events for \'' + rfidCode + '\''), () => {
+			this.setObjectNotExists(objName, this.buildFolderObject('status and latest events for pet with rfid \'' + rfidCode + '\''), () => {
 				const promiseArray = [];
 				for(let t = 0; t <= EVENT_TYPE_MAX; t++) {
-					if(EVENT_TYPE[t] in lastEvents) {
-						promiseArray.push(this.setLastEventForRfidAndEventTypeToAdapter(objName + '.' + EVENT_TYPE[t], EVENT_TYPE[t], lastEvents[EVENT_TYPE[t]].eventIndex, rfidCode));
+					if(EVENT_TYPE[t] in latestEvents) {
+						promiseArray.push(this.setLastEventForRfidAndEventTypeToAdapter(objName + '.' + EVENT_TYPE[t], EVENT_TYPE[t], latestEvents[EVENT_TYPE[t]].eventIndex, rfidCode));
 					}
 				}
-				Promise.all(promiseArray).then(() => {
-					return resolve();
-				}).catch(error => {
-					this.log.warn(`Could not set last events for rfid (${error}).`);
-					return reject();
+				this.setObjectNotExists(objName + '.status', this.buildStateObject('status for pet with rfid \'' + rfidCode + '\'', 'indicator', 'string'), () => {
+					if('inside' in latestEvents && latestEvents.inside !== undefined) {
+						promiseArray.push(this.setState(objName + '.status', latestEvents.inside ? 'inside' : 'outside', true));
+					}
+					Promise.all(promiseArray).then(() => {
+						return resolve();
+					}).catch(error => {
+						this.log.warn(`Could not set latest events for pet rfid (${error}).`);
+						return reject();
+					});
 				});
 			});
 		}));
 	}
 
 	/**
-	 * Creates the state objects and sets the state values for a last event of a given event type for a given rfid
+	 * Creates the state objects and sets the state values for the latest event of a given event type for a given rfid
 	 *
 	 * @param {string} objName
 	 * @param {string} eventType
@@ -763,7 +782,7 @@ class Template extends utils.Adapter {
 	 */
 	setLastEventForRfidAndEventTypeToAdapter(objName, eventType, eventIndex, rfidCode) {
 		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
-			this.createEventStateObjectsToAdapter(objName, 'last \'' + eventType + '\' event for \'' + rfidCode + '\'')
+			this.createEventStateObjectsToAdapter(objName, 'latest \'' + eventType + '\' event for pet with rfid \'' + rfidCode + '\'')
 				.then(() => {
 					this.setEventStatesToAdapter(objName, eventIndex);
 					this.setObjectNotExists(objName + '.json', this.buildStateObject('event json', 'json', 'string'), () => {
@@ -771,37 +790,37 @@ class Template extends utils.Adapter {
 						return resolve();
 					});
 				}).catch(error => {
-					this.log.warn(`Could not create last event for rfid '${rfidCode}' event type '${eventType}' (${error}).`);
+					this.log.warn(`Could not create latest event for rfid '${rfidCode}' event type '${eventType}' (${error}).`);
 					return reject();
 				});
 		}));
 	}
 
 	/**
-	 * Updates the last events per rfid and event type
+	 * Updates the latest events per rfid and event type
 	 *
 	 * @return {Promise<void>}
 	 */
-	updateLastEvents() {
+	updateLatestEvents() {
 		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
 			if (this.devices) {
 				if (this.events) {
-					this.log.info(`Updating last events...`);
+					this.log.info(`Updating latest events...`);
 					const promiseArray = [];
-					const lastEvents = this.calculateLastEvents();
+					const latestEvents = this.calculateLatestEvents();
 					for (let d = 0; d < this.devices.length; d++) {
-						if(d in lastEvents) {
-							for (let r = 0; r < lastEvents[d].rfidCodes.length; r++) {
-								const rfidCode = lastEvents[d].rfidCodes[r];
-								promiseArray.push(this.setLastEventsForRfidToAdapter(this.devices[d].description.toLowerCase() + '.lastEvent.' + rfidCode, lastEvents[d][rfidCode], rfidCode));
+						if(d in latestEvents) {
+							for (let r = 0; r < latestEvents[d].rfidCodes.length; r++) {
+								const rfidCode = latestEvents[d].rfidCodes[r];
+								promiseArray.push(this.setLastEventsForRfidToAdapter(this.devices[d].description.toLowerCase() + '.pets.' + rfidCode, latestEvents[d][rfidCode], rfidCode));
 							}
 						}
 					}
 					Promise.all(promiseArray).then(() => {
-						this.log.info(`Last events updated.`);
+						this.log.info(`Latest events updated.`);
 						return resolve();
 					}).catch(error => {
-						this.log.warn(`Could not update last events (${error}).`);
+						this.log.warn(`Could not update latest events (${error}).`);
 						return reject();
 					});
 				} else {
@@ -814,43 +833,55 @@ class Template extends utils.Adapter {
 	}
 
 	/**
-	 * Calculates the last events per rfid
+	 * Calculates the latest events per pet rfid
 	 *
-	 * @return {any} an object with last events per rfid
+	 * @return {any} an object with latest events per pet rfid
 	 */
-	calculateLastEvents() {
-		const lastEvents = {};
-		this.log.debug(`Calculating last events...`);
+	calculateLatestEvents() {
+		const latestEvents = {};
+		this.log.debug(`Calculating status and latest events...`);
 		for (let d = 0; d < this.devices.length; d++) {
 			for (let e = 0; e < this.events.length; e++) {
 				if (this.events[e].deviceId === this.devices[d].deviceId) {
-					if(!(d in lastEvents)) {
-						lastEvents[d] = {};
-						lastEvents[d].rfidCodes = [];
+					if(!(d in latestEvents)) {
+						latestEvents[d] = {};
+						latestEvents[d].rfidCodes = [];
 					}
 					for(let r = 0; r < this.events[e].rfidCodes.length; r++) {
 						const rfidCode = this.events[e].rfidCodes[r];
-						if(!lastEvents[d].rfidCodes.includes(rfidCode)) {
-							lastEvents[d].rfidCodes.push(rfidCode);
-							lastEvents[d][rfidCode] = {};
+						if(!latestEvents[d].rfidCodes.includes(rfidCode)) {
+							latestEvents[d].rfidCodes.push(rfidCode);
+							latestEvents[d][rfidCode] = {};
 						}
 						const eventType = EVENT_TYPE[this.events[e].eventClassification];
-						if(!(eventType in lastEvents[d][rfidCode])) {
-							lastEvents[d][rfidCode][eventType] = this.events[e];
-							lastEvents[d][rfidCode][eventType].eventIndex = e;
+						if(!(eventType in latestEvents[d][rfidCode])) {
+							latestEvents[d][rfidCode][eventType] = this.events[e];
+							latestEvents[d][rfidCode][eventType].eventIndex = e;
 						} else {
-							if(new Date(lastEvents[d][rfidCode][eventType].timestamp) < new Date(this.events[e].timestamp)) {
-								lastEvents[d][rfidCode][eventType] = this.events[e];
-								lastEvents[d][rfidCode][eventType].eventIndex = e;
+							if(new Date(latestEvents[d][rfidCode][eventType].timestamp) < new Date(this.events[e].timestamp)) {
+								latestEvents[d][rfidCode][eventType] = this.events[e];
+								latestEvents[d][rfidCode][eventType].eventIndex = e;
 							}
 						}
 					}
 				}
 			}
+			for(let r = 0; r < latestEvents[d].rfidCodes.length; r++) {
+				const rfidCode = latestEvents[d].rfidCodes[r];
+				if(EVENT_TYPE[0] in latestEvents[d][rfidCode] && EVENT_TYPE[1] in latestEvents[d][rfidCode]) {
+					latestEvents[d][rfidCode].inside = new Date(latestEvents[d][rfidCode][EVENT_TYPE[0]].timestamp) < new Date(latestEvents[d][rfidCode][EVENT_TYPE[1]].timestamp);
+				} else if (EVENT_TYPE[0] in latestEvents[d][rfidCode]) {
+					latestEvents[d][rfidCode].inside = false;
+				} else if (EVENT_TYPE[1] in latestEvents[d][rfidCode]) {
+					latestEvents[d][rfidCode].inside = true;
+				} else {
+					latestEvents[d][rfidCode].inside = undefined;
+				}
+			}
 		}
-		this.log.debug(`Last events calculated.`);
-		this.log.debug(`Last events: '${JSON.stringify(lastEvents)}'.`);
-		return lastEvents;
+		this.log.debug(`Status and latest events calculated.`);
+		this.log.debug(`Status and latest events: '${JSON.stringify(latestEvents)}'.`);
+		return latestEvents;
 	}
 
 	/**
