@@ -16,7 +16,7 @@
 Adapter for OnlyCat® cat flaps with prey detection
 
 <p align="center">
-  <img style="max-width: 400px" src="/admin/onlycat-flap.webp" />
+  <img src="/admin/onlycat-flap.webp" />
 </p>
 <p align="center">
   <img style="max-width: 300px" src="/admin/screenshot.jpg" />
