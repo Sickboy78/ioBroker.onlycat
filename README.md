@@ -11,10 +11,16 @@
 
 **Tests:** ![Test and Release](https://github.com/Author/ioBroker.template/workflows/Test%20and%20Release/badge.svg)
 
-## Adapter for OnlyCat cat flaps with prey detection
+## Adapter for OnlyCat® cat flaps with prey detection
 
-Adapter for OnlyCat cat flaps with prey detection
+Adapter for OnlyCat® cat flaps with prey detection
 
+<p align="center">
+  <img style="max-width: 400px" src="/admin/onlycat-flap.webp" />
+</p>
+<p align="center">
+  <img style="max-width: 300px" src="/admin/screenshot.jpg" />
+</p>
 ## Configuration
 
 Add device token on the adapter configuration page.
