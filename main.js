@@ -27,9 +27,14 @@ const RETRY_FREQUENCY_CONNECT = 60;
 const EVENT_UPDATE_FREQUENCY = 15;
 // Maximum Event Updates
 const MAX_EVENT_UPDATE = 10;
-// Event Types
-const EVENT_TYPE = {0: 'out', 1: 'in', 2: 'unknown', 3: 'contraband', 4: 'out_no_rfid'};
-const EVENT_TYPE_MAX = 4;
+// Event Trigger
+const EVENT_TRIGGER_SOURCE = {0: 'MANUAL', 1: 'REMOTE', 2: 'INDOOR_MOTION', 3: 'OUTDOOR_MOTION'};
+// Event Classification
+const EVENT_CLASSIFICATION = {0: 'UNKNOWN', 1: 'CLEAR', 2: 'SUSPICIOUS', 3: 'CONTRABAND', 4: 'HUMAN_ACTIVITY', 10: 'REMOTE_UNLOCK'};
+// Event Type generated from Trigger + Classification
+const EVENT_TYPE = {MANUAL: 0, REMOTE: 1, EXIT: 2, ENTRY: 3, CONTRABAND: 4};
+const EVENT_TYPE_NAME = {0: 'manual', 1: 'remote', 2: 'exit', 3: 'entry', 4: 'contraband'};
+const EVENT_TYPE_MAX = 5;
 
 class Template extends utils.Adapter {
 
@@ -606,9 +611,9 @@ class Template extends utils.Adapter {
 			this.setObjectNotExists(objName, this.buildFolderObject(description), () => {
 				promiseArray.push(this.setObjectNotExistsPromise(objName + '.accessToken', this.buildStateObject('Access token', 'text', 'string')));
 				promiseArray.push(this.setObjectNotExistsPromise(objName + '.deviceId', this.buildStateObject('Device ID', 'text', 'string')));
-				promiseArray.push(this.setObjectNotExistsPromise(objName + '.eventClassification', this.buildStateObject('Event classification', 'text', 'number')));
+				promiseArray.push(this.setObjectNotExistsPromise(objName + '.eventClassification', this.buildStateObject('Event classification', 'text', 'number', true, EVENT_CLASSIFICATION)));
 				promiseArray.push(this.setObjectNotExistsPromise(objName + '.eventId', this.buildStateObject('Event ID', 'text', 'number')));
-				promiseArray.push(this.setObjectNotExistsPromise(objName + '.eventTriggerSource', this.buildStateObject('Event trigger source', 'text', 'number')));
+				promiseArray.push(this.setObjectNotExistsPromise(objName + '.eventTriggerSource', this.buildStateObject('Event trigger source', 'text', 'number', true, EVENT_TRIGGER_SOURCE)));
 				promiseArray.push(this.setObjectNotExistsPromise(objName + '.frameCount', this.buildStateObject('Frame count', 'text', 'number')));
 				promiseArray.push(this.setObjectNotExistsPromise(objName + '.globalId', this.buildStateObject('Global ID', 'text', 'number')));
 				promiseArray.push(this.setObjectNotExistsPromise(objName + '.posterFrameIndex', this.buildStateObject('Poster frame index', 'text', 'number')));
@@ -747,13 +752,13 @@ class Template extends utils.Adapter {
 	 * @param {string} rfidCode
 	 * @return {Promise<void>}
 	 */
-	setLastEventsForRfidToAdapter(objName, latestEvents, rfidCode) {
+	setLatestEventsForRfidToAdapter(objName, latestEvents, rfidCode) {
 		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
 			this.setObjectNotExists(objName, this.buildFolderObject('status and latest events for pet with rfid \'' + rfidCode + '\''), () => {
 				const promiseArray = [];
 				for(let t = 0; t <= EVENT_TYPE_MAX; t++) {
-					if(EVENT_TYPE[t] in latestEvents) {
-						promiseArray.push(this.setLastEventForRfidAndEventTypeToAdapter(objName + '.' + EVENT_TYPE[t], EVENT_TYPE[t], latestEvents[EVENT_TYPE[t]].eventIndex, rfidCode));
+					if(t in latestEvents) {
+						promiseArray.push(this.setLatestEventForRfidAndEventTypeToAdapter(objName + '.' + EVENT_TYPE_NAME[t], EVENT_TYPE_NAME[t], latestEvents[t].eventIndex, rfidCode));
 					}
 				}
 				this.setObjectNotExists(objName + '.status', this.buildStateObject('status for pet with rfid \'' + rfidCode + '\'', 'indicator', 'string'), () => {
@@ -780,7 +785,7 @@ class Template extends utils.Adapter {
 	 * @param {string} rfidCode
 	 * @return {Promise<void>}
 	 */
-	setLastEventForRfidAndEventTypeToAdapter(objName, eventType, eventIndex, rfidCode) {
+	setLatestEventForRfidAndEventTypeToAdapter(objName, eventType, eventIndex, rfidCode) {
 		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
 			this.createEventStateObjectsToAdapter(objName, 'latest \'' + eventType + '\' event for pet with rfid \'' + rfidCode + '\'')
 				.then(() => {
@@ -812,7 +817,7 @@ class Template extends utils.Adapter {
 						if(d in latestEvents) {
 							for (let r = 0; r < latestEvents[d].rfidCodes.length; r++) {
 								const rfidCode = latestEvents[d].rfidCodes[r];
-								promiseArray.push(this.setLastEventsForRfidToAdapter(this.devices[d].description.toLowerCase() + '.pets.' + rfidCode, latestEvents[d][rfidCode], rfidCode));
+								promiseArray.push(this.setLatestEventsForRfidToAdapter(this.devices[d].description.toLowerCase() + '.pets.' + rfidCode, latestEvents[d][rfidCode], rfidCode));
 							}
 						}
 					}
@@ -853,7 +858,7 @@ class Template extends utils.Adapter {
 							latestEvents[d].rfidCodes.push(rfidCode);
 							latestEvents[d][rfidCode] = {};
 						}
-						const eventType = EVENT_TYPE[this.events[e].eventClassification];
+						const eventType = this.generateEventType(this.events[e].eventTriggerSource, this.events[e].eventClassification);
 						if(!(eventType in latestEvents[d][rfidCode])) {
 							latestEvents[d][rfidCode][eventType] = this.events[e];
 							latestEvents[d][rfidCode][eventType].eventIndex = e;
@@ -868,11 +873,11 @@ class Template extends utils.Adapter {
 			}
 			for(let r = 0; r < latestEvents[d].rfidCodes.length; r++) {
 				const rfidCode = latestEvents[d].rfidCodes[r];
-				if(EVENT_TYPE[0] in latestEvents[d][rfidCode] && EVENT_TYPE[1] in latestEvents[d][rfidCode]) {
-					latestEvents[d][rfidCode].inside = new Date(latestEvents[d][rfidCode][EVENT_TYPE[0]].timestamp) < new Date(latestEvents[d][rfidCode][EVENT_TYPE[1]].timestamp);
-				} else if (EVENT_TYPE[0] in latestEvents[d][rfidCode]) {
+				if(EVENT_TYPE.EXIT in latestEvents[d][rfidCode] && EVENT_TYPE.ENTRY in latestEvents[d][rfidCode]) {
+					latestEvents[d][rfidCode].inside = new Date(latestEvents[d][rfidCode][EVENT_TYPE.EXIT].timestamp) < new Date(latestEvents[d][rfidCode][EVENT_TYPE.ENTRY].timestamp);
+				} else if (EVENT_TYPE.EXIT in latestEvents[d][rfidCode]) {
 					latestEvents[d][rfidCode].inside = false;
-				} else if (EVENT_TYPE[1] in latestEvents[d][rfidCode]) {
+				} else if (EVENT_TYPE.ENTRY in latestEvents[d][rfidCode]) {
 					latestEvents[d][rfidCode].inside = true;
 				} else {
 					latestEvents[d][rfidCode].inside = undefined;
@@ -882,6 +887,20 @@ class Template extends utils.Adapter {
 		this.log.debug(`Status and latest events calculated.`);
 		this.log.debug(`Status and latest events: '${JSON.stringify(latestEvents)}'.`);
 		return latestEvents;
+	}
+
+	/**
+	 * generates the event type from trigger and classification
+	 *
+	 * @param {number} eventTriggerSource
+	 * @param {number} eventClassification
+	 * @return {number} the event type
+	 */
+	generateEventType(eventTriggerSource, eventClassification) {
+		if (EVENT_CLASSIFICATION[eventClassification] === 'CONTRABAND') {
+			return 4;
+		}
+		return eventTriggerSource;
 	}
 
 	/**
