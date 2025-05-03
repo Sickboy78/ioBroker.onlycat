@@ -38,8 +38,8 @@ module.exports = [...compat.extends('eslint:recommended'), {
 		'no-var': 'error',
 
 		'no-unused-vars': ['error', {
-				ignoreRestSiblings: true,
-				argsIgnorePattern: '^_',
+			ignoreRestSiblings: true,
+			argsIgnorePattern: '^_',
 		}],
 
 		'prefer-const': 'error',
