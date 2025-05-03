@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "onlycat",
-        "version": "0.0.1",
+        "version": "0.1.0",
         "news": {
+            "0.1.0": {
+                "en": "event classification and trigger source schema updated",
+                "de": "Schema der Ereignisklassifizierung und Auslöserquelle aktualisiert",
+                "ru": "Слава Украины",
+                "pt": "esquema de classificação de eventos e de fonte de acionamento atualizado",
+                "nl": "Gebeurtenisclassificatie en triggerbronschema bijgewerkt",
+                "fr": "mise à jour de la classification des événements et du schéma des sources de déclenchement",
+                "it": "classificazione degli eventi e schema delle fonti di attivazione aggiornati",
+                "es": "clasificación de eventos y actualización del esquema de fuentes de activación",
+                "pl": "zaktualizowano klasyfikację zdarzeń i schemat źródła wyzwalacza",
+                "uk": "оновлено класифікацію подій та схему джерел тригерів",
+                "zh-cn": "更新了事件分类和触发源模式"
+            },
             "0.0.1": {
                 "en": "initial release",
                 "de": "Erstveröffentlichung",

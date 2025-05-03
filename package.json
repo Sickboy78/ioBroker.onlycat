@@ -1,6 +1,6 @@
 {
   "name": "iobroker.onlycat",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Adapter for OnlyCat cat flaps with prey detection",
   "author": {
     "name": "Sickboy78",

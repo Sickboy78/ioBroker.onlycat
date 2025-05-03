@@ -2,10 +2,11 @@
 
 # ioBroker.onlycat
 
+![Current version in stable repository](https://iobroker.live/badges/template-stable.svg)
 [![NPM version](https://img.shields.io/npm/v/iobroker.template.svg)](https://www.npmjs.com/package/iobroker.template)
 [![Downloads](https://img.shields.io/npm/dm/iobroker.template.svg)](https://www.npmjs.com/package/iobroker.template)
 ![Number of Installations](https://iobroker.live/badges/template-installed.svg)
-![Current version in stable repository](https://iobroker.live/badges/template-stable.svg)
+
 
 [![NPM](https://nodei.co/npm/iobroker.template.png?downloads=true)](https://nodei.co/npm/iobroker.template/)
 
@@ -13,7 +14,7 @@
 
 ## Adapter for OnlyCat® cat flaps with prey detection
 
-Adapter for OnlyCat® cat flaps with prey detection
+Adapter for OnlyCat® cat flaps with prey detection.
 
 <p align="center">
   <img src="/admin/onlycat-flap.webp" />
@@ -38,6 +39,11 @@ The adapter requires Node 20 or newer.
 OnlyCat® is a registered trademarks of [VirtualV Trading Ltd.](https://www.onlycat.com/)
 
 ## Changelog
+
+### 0.1.0 (2025-05-03)
+
+* (Sickboy78) event classification and trigger source schema updated
+* (Sickboy78) dependency updates
 
 ### 0.0.1 (2025-04-18)
 
