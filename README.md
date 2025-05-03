@@ -2,15 +2,15 @@
 
 # ioBroker.onlycat
 
-![Current version in stable repository](https://iobroker.live/badges/template-stable.svg)
-[![NPM version](https://img.shields.io/npm/v/iobroker.template.svg)](https://www.npmjs.com/package/iobroker.template)
-[![Downloads](https://img.shields.io/npm/dm/iobroker.template.svg)](https://www.npmjs.com/package/iobroker.template)
-![Number of Installations](https://iobroker.live/badges/template-installed.svg)
+![Current version in stable repository](https://iobroker.live/badges/onlycat-stable.svg)
+[![NPM version](https://img.shields.io/npm/v/iobroker.onlycat.svg)](https://www.npmjs.com/package/iobroker.onlycat)
+[![Downloads](https://img.shields.io/npm/dm/iobroker.onlycat.svg)](https://www.npmjs.com/package/iobroker.onlycat)
+![Number of Installations](https://iobroker.live/badges/onlycat-installed.svg)
 
 
-[![NPM](https://nodei.co/npm/iobroker.template.png?downloads=true)](https://nodei.co/npm/iobroker.template/)
+[![NPM](https://nodei.co/npm/iobroker.onlycat.png?downloads=true)](https://nodei.co/npm/iobroker.onlycat/)
 
-**Tests:** ![Test and Release](https://github.com/Author/ioBroker.template/workflows/Test%20and%20Release/badge.svg)
+**Tests:** ![Test and Release](https://github.com/Author/ioBroker.onlycat/workflows/Test%20and%20Release/badge.svg)
 
 ## Adapter for OnlyCat® cat flaps with prey detection
 
