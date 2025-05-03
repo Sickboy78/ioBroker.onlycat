@@ -15,19 +15,6 @@
                 "pl": "zaktualizowano klasyfikację zdarzeń i schemat źródła wyzwalacza",
                 "uk": "оновлено класифікацію подій та схему джерел тригерів",
                 "zh-cn": "更新了事件分类和触发源模式"
-            },
-            "0.0.1": {
-                "en": "initial release",
-                "de": "Erstveröffentlichung",
-                "ru": "Слава Украины",
-                "pt": "lançamento inicial",
-                "nl": "Eerste uitgave",
-                "fr": "Première version",
-                "it": "Versione iniziale",
-                "es": "Versión inicial",
-                "pl": "Pierwsze wydanie",
-                "uk": "Початкова версія",
-                "zh-cn": "首次出版"
             }
         },
         "titleLang": {
@@ -81,10 +68,12 @@
         "mode": "daemon",
         "type": "iot-systems",
         "compact": true,
+        "connectionType": "cloud",
+        "dataSource": "push",
         "adminUI": {
             "config": "json"
         },
-        "supportCustoms": true,
+        "supportCustoms": false,
         "dependencies": [
             {
                 "js-controller": ">=6.0.11"
