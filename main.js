@@ -897,7 +897,7 @@ class Template extends utils.Adapter {
 	 * @return {number} the event type
 	 */
 	generateEventType(eventTriggerSource, eventClassification) {
-		if (EVENT_CLASSIFICATION[eventClassification] === 'CONTRABAND') {
+		if (EVENT_CLASSIFICATION[eventClassification] === 'CONTRABAND' || EVENT_CLASSIFICATION[eventClassification] === 'SUSPICIOUS') {
 			return 4;
 		}
 		return eventTriggerSource;
