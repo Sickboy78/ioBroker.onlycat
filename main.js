@@ -398,8 +398,14 @@ class Template extends utils.Adapter {
 				this.api.request('getDevices', {subscribe: true})
 					.then((response) => {
 						this.devices = response;
-						if('description' in this.devices) {
-							this.devices.description = this.normalizeString(this.devices.description).toLowerCase();
+						for(let d = 0; d < this.devices.length; d++) {
+							if('description' in this.devices[d]) {
+								this.devices[d].description_org = this.devices[d].description;
+								this.devices[d].description = this.normalizeString(this.devices[d].description).toLowerCase();
+								if(this.devices[d].description_org !== this.devices[d].description) {
+									this.log.debug(`Normalizing device name from: '${this.devices[d].description_org}' to '${this.devices[d].description}'`);
+								}
+							}
 						}
 						this.log.info(this.devices.length === 1 ? `Got 1 device.` : `Got ${this.devices.length} devices.`);
 						this.log.debug(`Getting devices response: '${JSON.stringify(response)}'.`);
@@ -520,7 +526,11 @@ class Template extends utils.Adapter {
 					.then((response) => {
 						this.rfidProfiles[rfid] = response;
 						if('label' in this.rfidProfiles[rfid]) {
+							this.rfidProfiles[rfid].label_org = this.rfidProfiles[rfid].label;
 							this.rfidProfiles[rfid].label = this.normalizeString(this.rfidProfiles[rfid].label);
+							if(this.rfidProfiles[rfid].label_org !== this.rfidProfiles[rfid].label) {
+								this.log.debug(`Normalizing pet name from: '${this.rfidProfiles[rfid].label_org}' to '${this.rfidProfiles[rfid].label}'`);
+							}
 						}
 						this.log.debug(`Got RFID profile for RFID '${rfid}'.`);
 						this.log.silly(`Getting RFID profile response: '${JSON.stringify(response)}'.`);
@@ -621,7 +631,7 @@ class Template extends utils.Adapter {
 			for (let d = 0; d < this.devices.length; d++) {
 				const objName = this.devices[d].description;
 
-				this.setObjectNotExists(objName, this.buildDeviceObject('Device \'' + this.devices[d].description + '\' (' + this.devices[d].deviceId + ')'), () => {
+				this.setObjectNotExists(objName, this.buildDeviceObject('Device \'' + this.devices[d].description_org + '\' (' + this.devices[d].deviceId + ')'), () => {
 					promiseArray.push(this.setObjectNotExistsPromise(objName + '.deviceId', this.buildStateObject('id of the device', 'text', 'string')));
 					promiseArray.push(this.setObjectNotExistsPromise(objName + '.description', this.buildStateObject('description of the device', 'text', 'string')));
 					promiseArray.push(this.setObjectNotExistsPromise(objName + '.timeZone', this.buildStateObject('timeZone of the device', 'text', 'string')));
