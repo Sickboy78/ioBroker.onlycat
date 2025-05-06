@@ -68,6 +68,10 @@ class Template extends utils.Adapter {
 		/* current and previous data from OnlyCat API */
 		// list of devices
 		this.devices = undefined;
+		// list of RFIDs
+		this.rfids = [];
+		// list of RFID profiles
+		this.rfidProfiles = {};
 		// list of events
 		this.events = undefined;
 		// list of previous events
@@ -203,6 +207,8 @@ class Template extends utils.Adapter {
 		this.log.info(`Connecting...`);
 		this.connectToApi()
 			.then(() => this.getDevices())
+			.then(() => this.getRfids())
+			.then(() => this.getRfidProfiles())
 			.then(() => this.getEvents())
 			.then(() => this.createAdapterObjectHierarchy())
 			.then(() => this.updateDevices())
@@ -392,8 +398,132 @@ class Template extends utils.Adapter {
 				this.api.request('getDevices', {subscribe: true})
 					.then((response) => {
 						this.devices = response;
+						if('description' in this.devices) {
+							this.devices.description = this.normalizeString(this.devices.description).toLowerCase();
+						}
 						this.log.info(this.devices.length === 1 ? `Got 1 device.` : `Got ${this.devices.length} devices.`);
 						this.log.debug(`Getting devices response: '${JSON.stringify(response)}'.`);
+						return resolve();
+					})
+					.catch(error => {
+						reject(error);
+					});
+			}
+		}));
+	}
+
+	/**
+	 * Get RFIDs from OnlyCat API
+	 *
+	 * @return {Promise}
+	 */
+	getRfids() {
+		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
+			if(this.adapterUnloaded) {
+				reject(`Can not get RFIDs, adapter already unloaded.`);
+			} else {
+				const promiseArray = [];
+				this.rfids = [];
+				this.log.info(`Getting RFIDs...`);
+				for(let d = 0; d < this.devices.length; d++) {
+					promiseArray.push(this.getRfidsForDevice(this.devices[d].deviceId));
+				}
+				Promise.all(promiseArray).then(() => {
+					this.log.info(this.rfids.length === 1 ? `Got 1 RFID.` : `Got ${this.rfids.length} RFIDs.`);
+					this.log.debug(`Getting RFIDs response: '${JSON.stringify(this.rfids)}'.`);
+					return resolve();
+				}).catch(error => {
+					this.log.warn(`Could not get RFIDs (${error}).`);
+					return reject();
+				});
+			}
+		}));
+	}
+
+	/**
+	 * Get RFIDs for device from OnlyCat API
+	 *
+	 * @param {string} deviceId
+	 * @return {Promise}
+	 */
+	getRfidsForDevice(deviceId) {
+		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
+			if(this.adapterUnloaded) {
+				reject(`Can not get RFIDs for device with id '${deviceId}', adapter already unloaded.`);
+			} else {
+				this.log.debug(`Getting RFIDs for device with id '${deviceId}'...`);
+				this.api.request('getLastSeenRfidCodesByDevice', {deviceId: deviceId})
+					.then((response) => {
+						for(let r = 0; r < response.length; r++) {
+							if('rfidCode' in response[r]) {
+								this.rfids.push(response[r].rfidCode);
+							}
+						}
+						this.log.debug(response.length === 1 ? `Got 1 RFID for '${deviceId}'.` : `Got ${response.length} RFIDs for '${deviceId}'.`);
+						this.log.silly(`Getting RFIDs response: '${JSON.stringify(response)}'.`);
+						return resolve();
+					})
+					.catch(error => {
+						reject(error);
+					});
+			}
+		}));
+	}
+
+	/**
+	 * Get RFID Profiles from OnlyCat API
+	 *
+	 * @return {Promise}
+	 */
+	getRfidProfiles() {
+		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
+			if(this.adapterUnloaded) {
+				reject(`Can not get RFID profiles, adapter already unloaded.`);
+			} else {
+				const promiseArray = [];
+				this.rfidProfiles = {};
+				this.log.info(`Getting RFID profiles...`);
+				for(let r = 0; r < this.rfids.length; r++) {
+					promiseArray.push(this.getRfidProfileForRfid(this.rfids[r]));
+				}
+				Promise.all(promiseArray).then(() => {
+					let profileCount = 0;
+					for (let r = 0; r < this.rfids.length; r++) {
+						if(this.rfids[r] in this.rfidProfiles) {
+							profileCount++;
+						}
+					}
+					this.log.info(profileCount === 1 ? `Got 1 RFID profile.` : `Got ${profileCount} RFID profiles.`);
+					this.log.debug(`Getting RFID profiles response: '${JSON.stringify(this.rfidProfiles)}'.`);
+					return resolve();
+				}).catch(error => {
+					this.log.warn(`Could not get RFIDs (${error}).`);
+					return reject();
+				});
+			}
+		}));
+	}
+
+	/**
+	 * Get RFID Profile for RFID from OnlyCat API
+	 *
+	 * @param {string} rfid
+	 * @return {Promise}
+	 */
+	getRfidProfileForRfid(rfid) {
+		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
+			if(this.adapterUnloaded) {
+				reject(`Can not get RFID profile for RFID '${rfid}', adapter already unloaded.`);
+			} else {
+				this.log.debug(`Getting RFID profile for RFID '${rfid}'...`);
+				this.api.request('getRfidProfile', {rfidCode: rfid})
+					.then((response) => {
+						this.rfidProfiles[rfid] = response;
+						if('label' in this.rfidProfiles[rfid]) {
+							this.rfidProfiles[rfid].label = this.normalizeString(this.rfidProfiles[rfid].label);
+						}
+						this.log.debug(`Got RFID profile for RFID '${rfid}'.`);
+						this.log.silly(`Getting RFID profile response: '${JSON.stringify(response)}'.`);
 						return resolve();
 					})
 					.catch(error => {
@@ -489,7 +619,7 @@ class Template extends utils.Adapter {
 
 			// create devices
 			for (let d = 0; d < this.devices.length; d++) {
-				const objName = this.devices[d].description.toLowerCase();
+				const objName = this.devices[d].description;
 
 				this.setObjectNotExists(objName, this.buildDeviceObject('Device \'' + this.devices[d].description + '\' (' + this.devices[d].deviceId + ')'), () => {
 					promiseArray.push(this.setObjectNotExistsPromise(objName + '.deviceId', this.buildStateObject('id of the device', 'text', 'string')));
@@ -518,7 +648,7 @@ class Template extends utils.Adapter {
 		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
 			const promiseArray = [];
 			for (let d = 0; d < this.devices.length; d++) {
-				const objName = this.devices[d].description.toLowerCase();
+				const objName = this.devices[d].description;
 				promiseArray.push(this.createEventsAsJsonToAdapter(objName));
 				promiseArray.push(this.createEventsAsStateObjectsToAdapter(objName));
 			}
@@ -540,7 +670,7 @@ class Template extends utils.Adapter {
 		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
 			const promiseArray = [];
 			for (let d = 0; d < this.devices.length; d++) {
-				const objName = this.devices[d].description.toLowerCase();
+				const objName = this.devices[d].description;
 				promiseArray.push(this.setObjectNotExistsPromise(objName + '.pets', this.buildChannelObject('status und latest events for pets')));
 			}
 			Promise.all(promiseArray).then(() => {
@@ -661,7 +791,7 @@ class Template extends utils.Adapter {
 		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
 			if (this.devices) {
 				for (let d = 0; d < this.devices.length; d++) {
-					const objName = this.devices[d].description.toLowerCase();
+					const objName = this.devices[d].description;
 					this.setState(objName + '.deviceId', this.devices[d].deviceId, true);
 					this.setState(objName + '.description', this.devices[d].description, true);
 					this.setState(objName + '.timeZone', this.devices[d].timeZone, true);
@@ -688,7 +818,7 @@ class Template extends utils.Adapter {
 					if (!this.lastEvents || JSON.stringify(this.events) !== JSON.stringify(this.lastEvents)) {
 						for (let d = 0; d < this.devices.length; d++) {
 							let eventNumber = 1;
-							const objName = this.devices[d].description.toLowerCase();
+							const objName = this.devices[d].description;
 							for (let e = 0; e < this.events.length; e++) {
 								if (this.events[e].deviceId === this.devices[d].deviceId) {
 									if (eventNumber <= 10) {
@@ -750,18 +880,19 @@ class Template extends utils.Adapter {
 	 * @param {string} objName
 	 * @param {any} latestEvents
 	 * @param {string} rfidCode
+	 * @param {string} petName
 	 * @return {Promise<void>}
 	 */
-	setLatestEventsForRfidToAdapter(objName, latestEvents, rfidCode) {
+	setLatestEventsForRfidToAdapter(objName, latestEvents, rfidCode, petName) {
 		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
-			this.setObjectNotExists(objName, this.buildFolderObject('status and latest events for pet with rfid \'' + rfidCode + '\''), () => {
+			this.setObjectNotExists(objName, this.buildFolderObject('status and latest events for ' + (petName ? '\'' + petName + '\'' : 'pet with rfid \'' + rfidCode + '\'')), () => {
 				const promiseArray = [];
 				for(let t = 0; t <= EVENT_TYPE_MAX; t++) {
 					if(t in latestEvents) {
-						promiseArray.push(this.setLatestEventForRfidAndEventTypeToAdapter(objName + '.' + EVENT_TYPE_NAME[t], EVENT_TYPE_NAME[t], latestEvents[t].eventIndex, rfidCode));
+						promiseArray.push(this.setLatestEventForRfidAndEventTypeToAdapter(objName + '.' + EVENT_TYPE_NAME[t], EVENT_TYPE_NAME[t], latestEvents[t].eventIndex, rfidCode, petName));
 					}
 				}
-				this.setObjectNotExists(objName + '.status', this.buildStateObject('status for pet with rfid \'' + rfidCode + '\'', 'indicator', 'string'), () => {
+				this.setObjectNotExists(objName + '.status', this.buildStateObject('status for ' + (petName ? '\'' + petName + '\'' : 'pet with rfid \'' + rfidCode + '\''), 'indicator', 'string'), () => {
 					if('inside' in latestEvents && latestEvents.inside !== undefined) {
 						promiseArray.push(this.setState(objName + '.status', latestEvents.inside ? 'inside' : 'outside', true));
 					}
@@ -783,11 +914,12 @@ class Template extends utils.Adapter {
 	 * @param {string} eventType
 	 * @param {number} eventIndex
 	 * @param {string} rfidCode
+	 * @param {string} petName
 	 * @return {Promise<void>}
 	 */
-	setLatestEventForRfidAndEventTypeToAdapter(objName, eventType, eventIndex, rfidCode) {
+	setLatestEventForRfidAndEventTypeToAdapter(objName, eventType, eventIndex, rfidCode, petName) {
 		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
-			this.createEventStateObjectsToAdapter(objName, 'latest \'' + eventType + '\' event for pet with rfid \'' + rfidCode + '\'')
+			this.createEventStateObjectsToAdapter(objName, 'latest \'' + eventType + '\' event for ' + (petName ? '\'' + petName + '\'' : 'pet with rfid \'' + rfidCode + '\''))
 				.then(() => {
 					this.setEventStatesToAdapter(objName, eventIndex);
 					this.setObjectNotExists(objName + '.json', this.buildStateObject('event json', 'json', 'string'), () => {
@@ -817,7 +949,11 @@ class Template extends utils.Adapter {
 						if(d in latestEvents) {
 							for (let r = 0; r < latestEvents[d].rfidCodes.length; r++) {
 								const rfidCode = latestEvents[d].rfidCodes[r];
-								promiseArray.push(this.setLatestEventsForRfidToAdapter(this.devices[d].description.toLowerCase() + '.pets.' + rfidCode, latestEvents[d][rfidCode], rfidCode));
+								let petName = undefined;
+								if(rfidCode in this.rfidProfiles && 'label' in this.rfidProfiles[rfidCode]) {
+									petName = this.rfidProfiles[rfidCode].label;
+								}
+								promiseArray.push(this.setLatestEventsForRfidToAdapter(this.devices[d].description + '.pets.' + (petName ? petName : rfidCode), latestEvents[d][rfidCode], rfidCode, petName));
 							}
 						}
 					}
@@ -1129,6 +1265,18 @@ class Template extends utils.Adapter {
 	padZero(num) {
 		const norm = Math.floor(Math.abs(num));
 		return (norm < 10 ? '0' : '') + norm;
+	}
+
+	/**
+	 * removes whitespaces and special characters from input
+	 *
+	 * @param {string} input
+	 * @return {string}
+	 */
+	normalizeString(input) {
+		const reg = /\W/ig;
+		const rep = '_';
+		return input.replace(reg, rep);
 	}
 
 }
