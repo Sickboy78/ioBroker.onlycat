@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "onlycat",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "news": {
+            "0.2.0": {
+                "en": "use pet names from RFID profiles",
+                "de": "Verwendung der Tiernamen aus den RFID Profilen",
+                "ru": "Слава Украины",
+                "pt": "utilizar nomes de animais de estimação de perfis RFID",
+                "nl": "huisdiernamen van RFID-profielen gebruiken",
+                "fr": "utiliser les noms d'animaux des profils RFID",
+                "it": "utilizzare i nomi di animali domestici dai profili RFID",
+                "es": "utilizar nombres de mascotas de perfiles RFID",
+                "pl": "używać imion zwierząt z profili RFID",
+                "uk": "використовуйте імена домашніх тварин з RFID-профілів",
+                "zh-cn": "使用 RFID 配置文件中的宠物名"
+            },
             "0.1.0": {
                 "en": "event classification and trigger source schema updated",
                 "de": "Schema der Ereignisklassifizierung und Auslöserquelle aktualisiert",
