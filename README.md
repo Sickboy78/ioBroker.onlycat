@@ -40,6 +40,10 @@ OnlyCat® is a registered trademarks of [VirtualV Trading Ltd.](https://www.only
 
 ## Changelog
 
+### 0.3.0 (2025-06-04)
+
+* (Sickboy78) code improvements from review
+
 ### 0.2.0 (2025-05-09)
 
 * (Sickboy78) use pet names from RFID profiles

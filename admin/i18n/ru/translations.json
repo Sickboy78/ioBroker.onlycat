@@ -1,5 +1,5 @@
 {
-    "template adapter settings": "Настройки адаптера для template",
-    "option1": "вариант 1",
-    "option2": "вариант2"
+    "account settings": "настройки аккаунта",
+    "onlycat account": "OnlyCat аккаунт",
+    "token": "токен"
 }

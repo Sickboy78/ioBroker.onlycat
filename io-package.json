@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "onlycat",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "news": {
+            "0.3.0": {
+                "en": "code improvements from review",
+                "de": "Codeverbesserungen vom Review",
+                "ru": "Слава Украины",
+                "pt": "melhorias do código de revisão",
+                "nl": "code verbeteringen na herziening",
+                "fr": "améliorations du code suite à la révision",
+                "it": "miglioramenti al codice dalla revisione",
+                "es": "mejoras en el código a partir de la revisión",
+                "pl": "poprawki kodu z przeglądu",
+                "uk": "покращення коду після перегляду",
+                "zh-cn": "审查后的代码改进"
+            },
             "0.2.0": {
                 "en": "use pet names from RFID profiles",
                 "de": "Verwendung der Tiernamen aus den RFID Profilen",

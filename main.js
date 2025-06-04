@@ -15,12 +15,11 @@
 const utils = require('@iobroker/adapter-core');
 
 // Load your modules here, e.g.:
-const util = require('util');
 const OnlyCatApi = require('./lib/onlycat-api');
 
 // Constants
 // Adapter version
-const ADAPTER_VERSION = '0.2.0';
+const ADAPTER_VERSION = '0.3.0';
 // Reconnect frequency
 const RETRY_FREQUENCY_CONNECT = 60;
 // Event Update frequency
@@ -78,9 +77,6 @@ class Template extends utils.Adapter {
 		this.lastEvents = undefined;
 		// current user
 		this.currentUser = undefined;
-
-		// promisify setObjectNotExists
-		this.setObjectNotExistsPromise = util.promisify(this.setObjectNotExists);
 
 		this.on('ready', this.onReady.bind(this));
 		this.on('stateChange', this.onStateChange.bind(this));
@@ -169,9 +165,6 @@ class Template extends utils.Adapter {
 					this.getAndUpdateEvents();
 				}
 			}
-
-			// The state was changed
-			this.log.info(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
 		}
 	}
 
@@ -280,7 +273,7 @@ class Template extends utils.Adapter {
 				this.api.closeConnection();
 				this.log.info(`Reconnecting in ${RETRY_FREQUENCY_CONNECT} seconds.`);
 				// @ts-ignore
-				this.reconnectTimerId = setTimeout(this.connectToApiAndStartRetrievingData.bind(this), RETRY_FREQUENCY_CONNECT * 1000);
+				this.reconnectTimerId = this.setTimeout(this.connectToApiAndStartRetrievingData.bind(this), RETRY_FREQUENCY_CONNECT * 1000);
 			}
 		}
 	}
@@ -292,9 +285,9 @@ class Template extends utils.Adapter {
 	 */
 	subscribeEvents() {
 		return /** @type {Promise<void>} */(new Promise((resolve) => {
-			this.log.info(`Subscribing to events...`);
+			this.log.debug(`Subscribing to events...`);
 			this.api.subscribeToEvent('userEventUpdate', (/** @type {any} */ data) => this.onEventReceived(data));
-			this.log.info(`Events subscribed.`);
+			this.log.debug(`Events subscribed.`);
 			return resolve();
 		}));
 	}
@@ -303,9 +296,9 @@ class Template extends utils.Adapter {
 	 * Unsubscribe from events
 	 */
 	unsubscribeEvents() {
-		this.log.info(`Unsubscribing from events...`);
+		this.log.debug(`Unsubscribing from events...`);
 		this.api.unsubscribeFromEvent('userEventUpdate');
-		this.log.info(`Events unsubscribed.`);
+		this.log.debug(`Events unsubscribed.`);
 	}
 
 
@@ -318,7 +311,7 @@ class Template extends utils.Adapter {
 		if (user !== undefined) {
 			this.log.debug(`User changed${user.id ? ' for user: ' + user.id : ''}.`);
 			if(this.currentUser !== undefined) {
-				this.log.info(`User changed, getting Events.`);
+				this.log.debug(`User changed, getting Events.`);
 				this.resetEventUpdateCounter();
 				this.getAndUpdateEvents();
 			}
@@ -352,8 +345,8 @@ class Template extends utils.Adapter {
 	 * @param {any} data
 	 */
 	onEventReceived(data) {
-		this.log.info(`Received event update.`);
-		this.log.debug(`Received event update: ${JSON.stringify(data)}`);
+		this.log.debug(`Received event update.`);
+		this.log.silly(`Received event update: ${JSON.stringify(data)}`);
 		this.resetEventUpdateCounter();
 		this.getAndUpdateEvents();
 	}
@@ -362,7 +355,7 @@ class Template extends utils.Adapter {
 	 * Handles event update timer
 	 */
 	onEventUpdateTimer() {
-		this.log.info(`Event update timer triggered.`);
+		this.log.debug(`Event update timer triggered.`);
 		this.getAndUpdateEvents();
 	}
 
@@ -394,21 +387,21 @@ class Template extends utils.Adapter {
 			if(this.adapterUnloaded) {
 				reject(`Can not get devices, adapter already unloaded.`);
 			} else {
-				this.log.info(`Getting devices...`);
+				this.log.debug(`Getting devices...`);
 				this.api.request('getDevices', {subscribe: true})
 					.then((response) => {
 						this.devices = response;
 						for(let d = 0; d < this.devices.length; d++) {
 							if('description' in this.devices[d]) {
 								this.devices[d].description_org = this.devices[d].description;
-								this.devices[d].description = this.normalizeString(this.devices[d].description).toLowerCase();
+								this.devices[d].description = this.normalizeString(this.devices[d].description);
 								if(this.devices[d].description_org !== this.devices[d].description) {
 									this.log.debug(`Normalizing device name from: '${this.devices[d].description_org}' to '${this.devices[d].description}'`);
 								}
 							}
 						}
-						this.log.info(this.devices.length === 1 ? `Got 1 device.` : `Got ${this.devices.length} devices.`);
-						this.log.debug(`Getting devices response: '${JSON.stringify(response)}'.`);
+						this.log.debug(this.devices.length === 1 ? `Got 1 device.` : `Got ${this.devices.length} devices.`);
+						this.log.silly(`Getting devices response: '${JSON.stringify(response)}'.`);
 						return resolve();
 					})
 					.catch(error => {
@@ -430,13 +423,13 @@ class Template extends utils.Adapter {
 			} else {
 				const promiseArray = [];
 				this.rfids = [];
-				this.log.info(`Getting RFIDs...`);
+				this.log.debug(`Getting RFIDs...`);
 				for(let d = 0; d < this.devices.length; d++) {
 					promiseArray.push(this.getRfidsForDevice(this.devices[d].deviceId));
 				}
 				Promise.all(promiseArray).then(() => {
-					this.log.info(this.rfids.length === 1 ? `Got 1 RFID.` : `Got ${this.rfids.length} RFIDs.`);
-					this.log.debug(`Getting RFIDs response: '${JSON.stringify(this.rfids)}'.`);
+					this.log.debug(this.rfids.length === 1 ? `Got 1 RFID.` : `Got ${this.rfids.length} RFIDs.`);
+					this.log.silly(`Getting RFIDs response: '${JSON.stringify(this.rfids)}'.`);
 					return resolve();
 				}).catch(error => {
 					this.log.warn(`Could not get RFIDs (${error}).`);
@@ -488,7 +481,7 @@ class Template extends utils.Adapter {
 			} else {
 				const promiseArray = [];
 				this.rfidProfiles = {};
-				this.log.info(`Getting RFID profiles...`);
+				this.log.debug(`Getting RFID profiles...`);
 				for(let r = 0; r < this.rfids.length; r++) {
 					promiseArray.push(this.getRfidProfileForRfid(this.rfids[r]));
 				}
@@ -499,8 +492,8 @@ class Template extends utils.Adapter {
 							profileCount++;
 						}
 					}
-					this.log.info(profileCount === 1 ? `Got 1 RFID profile.` : `Got ${profileCount} RFID profiles.`);
-					this.log.debug(`Getting RFID profiles response: '${JSON.stringify(this.rfidProfiles)}'.`);
+					this.log.debug(profileCount === 1 ? `Got 1 RFID profile.` : `Got ${profileCount} RFID profiles.`);
+					this.log.silly(`Getting RFID profiles response: '${JSON.stringify(this.rfidProfiles)}'.`);
 					return resolve();
 				}).catch(error => {
 					this.log.warn(`Could not get RFIDs (${error}).`);
@@ -553,12 +546,12 @@ class Template extends utils.Adapter {
 			if(this.adapterUnloaded) {
 				reject(`Can not get events, adapter already unloaded.`);
 			} else {
-				this.log.info(`Getting events...`);
+				this.log.debug(`Getting events...`);
 				this.api.request('getEvents', {subscribe: true})
 					.then((response) => {
 						this.lastEvents = this.events;
 						this.events = response;
-						this.log.info(this.events.length <= 1 ? `Got ${this.events.length} event.` : `Got ${this.events.length} events.`);
+						this.log.debug(this.events.length <= 1 ? `Got ${this.events.length} event.` : `Got ${this.events.length} events.`);
 						return resolve();
 					})
 					.catch(error => {
@@ -578,10 +571,10 @@ class Template extends utils.Adapter {
 			if(this.events[0].frameCount === undefined || this.events[0].frameCount === null) {
 				if(this.eventUpdateCounter < MAX_EVENT_UPDATE) {
 					this.clearEventUpdateTimer();
-					this.log.info(`Last event not yet final, trigger update in ${EVENT_UPDATE_FREQUENCY} seconds.`);
+					this.log.debug(`Last event not yet final, trigger update in ${EVENT_UPDATE_FREQUENCY} seconds.`);
 					this.eventUpdateCounter++;
-					this.log.debug(`Event update counter: ${this.eventUpdateCounter}.`);
-					this.eventUpdateTimerId = setTimeout(this.onEventUpdateTimer.bind(this), EVENT_UPDATE_FREQUENCY * 1000);
+					this.log.silly(`Event update counter: ${this.eventUpdateCounter}.`);
+					this.eventUpdateTimerId = this.setTimeout(this.onEventUpdateTimer.bind(this), EVENT_UPDATE_FREQUENCY * 1000);
 				} else {
 					this.log.debug(`Last event not yet final, but max event update counter reached: ${this.eventUpdateCounter}.`);
 				}
@@ -632,11 +625,11 @@ class Template extends utils.Adapter {
 				const objName = this.devices[d].description;
 
 				this.setObjectNotExists(objName, this.buildDeviceObject('Device \'' + this.devices[d].description_org + '\' (' + this.devices[d].deviceId + ')'), () => {
-					promiseArray.push(this.setObjectNotExistsPromise(objName + '.deviceId', this.buildStateObject('id of the device', 'text', 'string')));
-					promiseArray.push(this.setObjectNotExistsPromise(objName + '.description', this.buildStateObject('description of the device', 'text', 'string')));
-					promiseArray.push(this.setObjectNotExistsPromise(objName + '.timeZone', this.buildStateObject('timeZone of the device', 'text', 'string')));
-					promiseArray.push(this.setObjectNotExistsPromise(objName + '.deviceTransitPolicyId', this.buildStateObject('deviceTransitPolicyId of the device', 'text', 'number')));
-					promiseArray.push(this.setObjectNotExistsPromise(objName + '.cursorId', this.buildStateObject('cursorId of the device', 'text', 'number')));
+					promiseArray.push(this.setObjectNotExistsAsync(objName + '.deviceId', this.buildStateObject('id of the device', 'text', 'string')));
+					promiseArray.push(this.setObjectNotExistsAsync(objName + '.description', this.buildStateObject('description of the device', 'text', 'string')));
+					promiseArray.push(this.setObjectNotExistsAsync(objName + '.timeZone', this.buildStateObject('timeZone of the device', 'text', 'string')));
+					promiseArray.push(this.setObjectNotExistsAsync(objName + '.deviceTransitPolicyId', this.buildStateObject('deviceTransitPolicyId of the device', 'text', 'number')));
+					promiseArray.push(this.setObjectNotExistsAsync(objName + '.cursorId', this.buildStateObject('cursorId of the device', 'text', 'number')));
 				});
 			}
 
@@ -681,7 +674,7 @@ class Template extends utils.Adapter {
 			const promiseArray = [];
 			for (let d = 0; d < this.devices.length; d++) {
 				const objName = this.devices[d].description;
-				promiseArray.push(this.setObjectNotExistsPromise(objName + '.pets', this.buildChannelObject('status und latest events for pets')));
+				promiseArray.push(this.setObjectNotExistsAsync(objName + '.pets', this.buildChannelObject('status und latest events for pets')));
 			}
 			Promise.all(promiseArray).then(() => {
 				return resolve();
@@ -703,7 +696,7 @@ class Template extends utils.Adapter {
 			const promiseArray = [];
 			this.setObjectNotExists(objName + '.jsonEvents', this.buildChannelObject('events in json format'), () => {
 				for (let e = 0; e < 10; e++) {
-					promiseArray.push(this.setObjectNotExistsPromise(objName + '.jsonEvents.' + this.padZero(e + 1), this.buildStateObject('event ' + (e + 1), 'json', 'string')));
+					promiseArray.push(this.setObjectNotExistsAsync(objName + '.jsonEvents.' + this.padZero(e + 1), this.buildStateObject('event ' + (e + 1), 'json', 'string')));
 				}
 				Promise.all(promiseArray).then(() => {
 					return resolve();
@@ -749,16 +742,16 @@ class Template extends utils.Adapter {
 		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
 			const promiseArray = [];
 			this.setObjectNotExists(objName, this.buildFolderObject(description), () => {
-				promiseArray.push(this.setObjectNotExistsPromise(objName + '.accessToken', this.buildStateObject('Access token', 'text', 'string')));
-				promiseArray.push(this.setObjectNotExistsPromise(objName + '.deviceId', this.buildStateObject('Device ID', 'text', 'string')));
-				promiseArray.push(this.setObjectNotExistsPromise(objName + '.eventClassification', this.buildStateObject('Event classification', 'text', 'number', true, EVENT_CLASSIFICATION)));
-				promiseArray.push(this.setObjectNotExistsPromise(objName + '.eventId', this.buildStateObject('Event ID', 'text', 'number')));
-				promiseArray.push(this.setObjectNotExistsPromise(objName + '.eventTriggerSource', this.buildStateObject('Event trigger source', 'text', 'number', true, EVENT_TRIGGER_SOURCE)));
-				promiseArray.push(this.setObjectNotExistsPromise(objName + '.frameCount', this.buildStateObject('Frame count', 'text', 'number')));
-				promiseArray.push(this.setObjectNotExistsPromise(objName + '.globalId', this.buildStateObject('Global ID', 'text', 'number')));
-				promiseArray.push(this.setObjectNotExistsPromise(objName + '.posterFrameIndex', this.buildStateObject('Poster frame index', 'text', 'number')));
-				promiseArray.push(this.setObjectNotExistsPromise(objName + '.rfidCodes', this.buildStateObject('RFID codes', 'list', 'array')));
-				promiseArray.push(this.setObjectNotExistsPromise(objName + '.timestamp', this.buildStateObject('Timestamp', 'date', 'string')));
+				promiseArray.push(this.setObjectNotExistsAsync(objName + '.accessToken', this.buildStateObject('Access token', 'text', 'string')));
+				promiseArray.push(this.setObjectNotExistsAsync(objName + '.deviceId', this.buildStateObject('Device ID', 'text', 'string')));
+				promiseArray.push(this.setObjectNotExistsAsync(objName + '.eventClassification', this.buildStateObject('Event classification', 'text', 'number', true, EVENT_CLASSIFICATION)));
+				promiseArray.push(this.setObjectNotExistsAsync(objName + '.eventId', this.buildStateObject('Event ID', 'text', 'number')));
+				promiseArray.push(this.setObjectNotExistsAsync(objName + '.eventTriggerSource', this.buildStateObject('Event trigger source', 'text', 'number', true, EVENT_TRIGGER_SOURCE)));
+				promiseArray.push(this.setObjectNotExistsAsync(objName + '.frameCount', this.buildStateObject('Frame count', 'text', 'number')));
+				promiseArray.push(this.setObjectNotExistsAsync(objName + '.globalId', this.buildStateObject('Global ID', 'text', 'number')));
+				promiseArray.push(this.setObjectNotExistsAsync(objName + '.posterFrameIndex', this.buildStateObject('Poster frame index', 'text', 'number')));
+				promiseArray.push(this.setObjectNotExistsAsync(objName + '.rfidCodes', this.buildStateObject('RFID codes', 'list', 'array')));
+				promiseArray.push(this.setObjectNotExistsAsync(objName + '.timestamp', this.buildStateObject('Timestamp', 'date', 'string')));
 
 				Promise.all(promiseArray).then(() => {
 					return resolve();
@@ -822,7 +815,7 @@ class Template extends utils.Adapter {
      */
 	updateEvents() {
 		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
-			this.log.info(`Updating events...`);
+			this.log.debug(`Updating events...`);
 			if (this.devices) {
 				if (this.events) {
 					if (!this.lastEvents || JSON.stringify(this.events) !== JSON.stringify(this.lastEvents)) {
@@ -839,10 +832,10 @@ class Template extends utils.Adapter {
 								}
 							}
 						}
-						this.log.info(`Events updated.`);
+						this.log.debug(`Events updated.`);
 						this.setLastUpdateToAdapter();
 					} else {
-						this.log.info(`No change in events, nothing to update.`);
+						this.log.debug(`No change in events, nothing to update.`);
 					}
 					this.checkTriggerEventUpdate();
 					return resolve();
@@ -952,7 +945,7 @@ class Template extends utils.Adapter {
 		return /** @type {Promise<void>} */(new Promise((resolve, reject) => {
 			if (this.devices) {
 				if (this.events) {
-					this.log.info(`Updating latest events...`);
+					this.log.debug(`Updating latest events...`);
 					const promiseArray = [];
 					const latestEvents = this.calculateLatestEvents();
 					for (let d = 0; d < this.devices.length; d++) {
@@ -968,7 +961,7 @@ class Template extends utils.Adapter {
 						}
 					}
 					Promise.all(promiseArray).then(() => {
-						this.log.info(`Latest events updated.`);
+						this.log.debug(`Latest events updated.`);
 						return resolve();
 					}).catch(error => {
 						this.log.warn(`Could not update latest events (${error}).`);
@@ -1031,7 +1024,7 @@ class Template extends utils.Adapter {
 			}
 		}
 		this.log.debug(`Status and latest events calculated.`);
-		this.log.debug(`Status and latest events: '${JSON.stringify(latestEvents)}'.`);
+		this.log.silly(`Status and latest events: '${JSON.stringify(latestEvents)}'.`);
 		return latestEvents;
 	}
 
@@ -1118,7 +1111,7 @@ class Template extends utils.Adapter {
 	 */
 	clearReconnectTimer() {
 		if(this.reconnectTimerId !== undefined) {
-			clearTimeout(this.reconnectTimerId);
+			this.clearTimeout(this.reconnectTimerId);
 			this.reconnectTimerId = undefined;
 		}
 	}
@@ -1128,7 +1121,7 @@ class Template extends utils.Adapter {
 	 */
 	clearEventUpdateTimer() {
 		if(this.eventUpdateTimerId !== undefined) {
-			clearTimeout(this.eventUpdateTimerId);
+			this.clearTimeout(this.eventUpdateTimerId);
 			this.eventUpdateTimerId = undefined;
 		}
 	}
@@ -1168,7 +1161,7 @@ class Template extends utils.Adapter {
 		// The adapters config (in the instance object everything under the attribute "native") is accessible via
 		// this.config:
 		let configOk = true;
-		this.log.info(`checking adapter configuration...`);
+		this.log.debug(`checking adapter configuration...`);
 		if (!this.config.token || typeof this.config.token !== 'string' || this.config.token.length === 0) {
 			this.log.warn(`Token is invalid. Adapter probably won't work.`);
 			configOk = false;
@@ -1176,7 +1169,7 @@ class Template extends utils.Adapter {
 		if (configOk) {
 			this.log.info('adapter configuration ok');
 		} else {
-			this.log.info('adapter configuration contains errors');
+			this.log.warn('adapter configuration contains errors');
 		}
 	}
 
