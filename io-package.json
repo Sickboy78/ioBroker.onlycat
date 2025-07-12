@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "onlycat",
-        "version": "0.3.0",
+        "version": "0.3.1",
         "news": {
+            "0.3.1": {
+                "en": "improved event handling",
+                "de": "verbesserte Ereignisbehandlung ",
+                "ru": "Слава Украины",
+                "pt": "melhor tratamento de eventos",
+                "nl": "verbeterde afhandeling van gebeurtenissen",
+                "fr": "amélioration de la gestion des événements",
+                "it": "gestione degli eventi migliorata",
+                "es": "gestión de eventos mejorada",
+                "pl": "ulepszona obsługa zdarzeń",
+                "uk": "покращена обробка подій",
+                "zh-cn": "改进事件处理"
+            },
             "0.3.0": {
                 "en": "code improvements from review",
                 "de": "Codeverbesserungen vom Review",

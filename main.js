@@ -19,11 +19,11 @@ const OnlyCatApi = require('./lib/onlycat-api');
 
 // Constants
 // Adapter version
-const ADAPTER_VERSION = '0.3.0';
+const ADAPTER_VERSION = '0.3.1';
 // Reconnect frequency
 const RETRY_FREQUENCY_CONNECT = 60;
-// Event Update frequency
-const EVENT_UPDATE_FREQUENCY = 15;
+// Minimum Event Update frequency
+const MINIMUM_EVENT_UPDATE_FREQUENCY = 1;
 // Maximum Event Updates
 const MAX_EVENT_UPDATE = 10;
 // Event Trigger
@@ -568,13 +568,13 @@ class Template extends utils.Adapter {
 	checkTriggerEventUpdate() {
 		if (this.devices && this.events && this.events.length > 0) {
 			this.log.debug(`Checking if last event is final...`);
-			if(this.events[0].frameCount === undefined || this.events[0].frameCount === null) {
+			if(!this.isEventFinal(this.events[0])) {
 				if(this.eventUpdateCounter < MAX_EVENT_UPDATE) {
 					this.clearEventUpdateTimer();
-					this.log.debug(`Last event not yet final, trigger update in ${EVENT_UPDATE_FREQUENCY} seconds.`);
 					this.eventUpdateCounter++;
-					this.log.silly(`Event update counter: ${this.eventUpdateCounter}.`);
-					this.eventUpdateTimerId = this.setTimeout(this.onEventUpdateTimer.bind(this), EVENT_UPDATE_FREQUENCY * 1000);
+					const updateTimeout = Math.max(MINIMUM_EVENT_UPDATE_FREQUENCY, this.fibonacci(this.eventUpdateCounter));
+					this.log.debug(`Last event not yet final, trigger ${this.eventUpdateCounter}. update in ${updateTimeout} seconds.`);
+					this.eventUpdateTimerId = this.setTimeout(this.onEventUpdateTimer.bind(this), updateTimeout * 1000);
 				} else {
 					this.log.debug(`Last event not yet final, but max event update counter reached: ${this.eventUpdateCounter}.`);
 				}
@@ -986,25 +986,28 @@ class Template extends utils.Adapter {
 		this.log.debug(`Calculating status and latest events...`);
 		for (let d = 0; d < this.devices.length; d++) {
 			for (let e = 0; e < this.events.length; e++) {
-				if (this.events[e].deviceId === this.devices[d].deviceId) {
-					if(!(d in latestEvents)) {
-						latestEvents[d] = {};
-						latestEvents[d].rfidCodes = [];
-					}
-					for(let r = 0; r < this.events[e].rfidCodes.length; r++) {
-						const rfidCode = this.events[e].rfidCodes[r];
-						if(!latestEvents[d].rfidCodes.includes(rfidCode)) {
-							latestEvents[d].rfidCodes.push(rfidCode);
-							latestEvents[d][rfidCode] = {};
+				// ignore entry events who have not yet classified as clear or contraband
+				if (!this.isEntryEventWithUnknownClassification(this.events[e])) {
+					if (this.events[e].deviceId === this.devices[d].deviceId) {
+						if (!(d in latestEvents)) {
+							latestEvents[d] = {};
+							latestEvents[d].rfidCodes = [];
 						}
-						const eventType = this.generateEventType(this.events[e].eventTriggerSource, this.events[e].eventClassification);
-						if(!(eventType in latestEvents[d][rfidCode])) {
-							latestEvents[d][rfidCode][eventType] = this.events[e];
-							latestEvents[d][rfidCode][eventType].eventIndex = e;
-						} else {
-							if(new Date(latestEvents[d][rfidCode][eventType].timestamp) < new Date(this.events[e].timestamp)) {
+						for (let r = 0; r < this.events[e].rfidCodes.length; r++) {
+							const rfidCode = this.events[e].rfidCodes[r];
+							if (!latestEvents[d].rfidCodes.includes(rfidCode)) {
+								latestEvents[d].rfidCodes.push(rfidCode);
+								latestEvents[d][rfidCode] = {};
+							}
+							const eventType = this.generateEventType(this.events[e].eventTriggerSource, this.events[e].eventClassification);
+							if (!(eventType in latestEvents[d][rfidCode])) {
 								latestEvents[d][rfidCode][eventType] = this.events[e];
 								latestEvents[d][rfidCode][eventType].eventIndex = e;
+							} else {
+								if (new Date(latestEvents[d][rfidCode][eventType].timestamp) < new Date(this.events[e].timestamp)) {
+									latestEvents[d][rfidCode][eventType] = this.events[e];
+									latestEvents[d][rfidCode][eventType].eventIndex = e;
+								}
 							}
 						}
 					}
@@ -1026,20 +1029,6 @@ class Template extends utils.Adapter {
 		this.log.debug(`Status and latest events calculated.`);
 		this.log.silly(`Status and latest events: '${JSON.stringify(latestEvents)}'.`);
 		return latestEvents;
-	}
-
-	/**
-	 * generates the event type from trigger and classification
-	 *
-	 * @param {number} eventTriggerSource
-	 * @param {number} eventClassification
-	 * @return {number} the event type
-	 */
-	generateEventType(eventTriggerSource, eventClassification) {
-		if (EVENT_CLASSIFICATION[eventClassification] === 'CONTRABAND' || EVENT_CLASSIFICATION[eventClassification] === 'SUSPICIOUS') {
-			return 4;
-		}
-		return eventTriggerSource;
 	}
 
 	/**
@@ -1095,6 +1084,63 @@ class Template extends utils.Adapter {
 	/******************
 	 * helper methods *
 	 ******************/
+
+	/**
+	 * generates the event type from trigger and classification
+	 *
+	 * @param {number} eventTriggerSource
+	 * @param {number} eventClassification
+	 * @return {number} the event type
+	 */
+	generateEventType(eventTriggerSource, eventClassification) {
+		if (EVENT_CLASSIFICATION[eventClassification] === 'CONTRABAND' || EVENT_CLASSIFICATION[eventClassification] === 'SUSPICIOUS') {
+			return 4;
+		}
+		return eventTriggerSource;
+	}
+
+	/**
+	 * Returns the n-th fibonacci number.
+	 *
+	 * @param {number} n
+	 * @return {number} a fibonacci number
+	 */
+	fibonacci(n) {
+		let n1 = 0, n2 = 1, next = 1;
+		for (let i = 1; i < n; i++) {
+			next = n1 + n2;
+			n1 = n2;
+			n2 = next;
+		}
+		return next;
+	}
+
+	/**
+	 * Returns whether the given event is final, i.e. has a defined frame count.
+	 *
+	 * @param {object} event
+	 * @return {boolean} whether the event is final
+	 */
+	isEventFinal(event) {
+		return event !== undefined
+			&& 'frameCount' in event
+			&& event.frameCount !== undefined
+			&& event.frameCount !== null;
+	}
+
+	/**
+	 * Returns whether the given event is an entry event with unknown classification.
+	 *
+	 * @param {object} event
+	 * @return {boolean} whether the event is an entry event with unknown classification
+	 */
+	isEntryEventWithUnknownClassification(event) {
+		return event !== undefined
+			&& 'eventTriggerSource' in event
+			&& 'eventClassification' in event
+			&& EVENT_TRIGGER_SOURCE[event.eventTriggerSource] === 'OUTDOOR_MOTION'
+			&& EVENT_CLASSIFICATION[event.eventClassification] === 'UNKNOWN';
+	}
 
 	/**
 	 * Resets the event update counter

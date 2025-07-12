@@ -40,6 +40,11 @@ OnlyCat® is a registered trademarks of [VirtualV Trading Ltd.](https://www.only
 
 ## Changelog
 
+### 0.3.1 (2025-07-12)
+
+* (Sickboy78) improved event type classification
+* (Sickboy78) improved fetching of events in progress
+
 ### 0.3.0 (2025-06-04)
 
 * (Sickboy78) code improvements from review
