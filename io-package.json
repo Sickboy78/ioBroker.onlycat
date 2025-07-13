@@ -1,11 +1,24 @@
 {
     "common": {
         "name": "onlycat",
-        "version": "0.3.1",
+        "version": "0.4.0",
         "news": {
+            "0.4.0": {
+                "en": "migrated to iobroker eslint rules",
+                "de": "zu ioBroker Eslint Regeln migriert",
+                "ru": "Слава Украины",
+                "pt": "migrou para as regras do iobroker eslint",
+                "nl": "gemigreerd naar iobroker eslint regels",
+                "fr": "migré vers iobroker eslint rules",
+                "it": "migrato alle regole di iobroker eslint",
+                "es": "migrado a las reglas eslint de iobroker",
+                "pl": "migracja do reguł iobroker eslint",
+                "uk": "Перейшли на правила iobroker eslint",
+                "zh-cn": "迁移到 iobroker eslint 规则"
+            },
             "0.3.1": {
                 "en": "improved event handling",
-                "de": "verbesserte Ereignisbehandlung ",
+                "de": "verbesserte Ereignisbehandlung",
                 "ru": "Слава Украины",
                 "pt": "melhor tratamento de eventos",
                 "nl": "verbeterde afhandeling van gebeurtenissen",

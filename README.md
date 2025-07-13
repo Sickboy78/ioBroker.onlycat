@@ -40,6 +40,10 @@ OnlyCat® is a registered trademarks of [VirtualV Trading Ltd.](https://www.only
 
 ## Changelog
 
+### 0.4.0 (2025-07-12)
+
+* (Sickboy78) migrated to iobroker eslint rules
+
 ### 0.3.1 (2025-07-12)
 
 * (Sickboy78) improved event type classification
