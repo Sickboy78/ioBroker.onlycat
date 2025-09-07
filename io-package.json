@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "onlycat",
-        "version": "0.4.0",
+        "version": "0.5.0",
         "news": {
+            "0.5.0": {
+                "en": "transit policies added",
+                "de": "Türrichtlinien hinzugefügt",
+                "ru": "Слава Украины",
+                "pt": "políticas de trânsito adicionadas",
+                "nl": "transitbeleid toegevoegd",
+                "fr": "politiques de transit ajoutées",
+                "it": "politiche di transito aggiunte",
+                "es": "políticas de tránsito añadidas",
+                "pl": "dodano politykę tranzytową",
+                "uk": "додано політику транзиту",
+                "zh-cn": "新增过境政策"
+            },
             "0.4.0": {
                 "en": "migrated to iobroker eslint rules",
                 "de": "zu ioBroker Eslint Regeln migriert",
@@ -152,7 +165,7 @@
             "_id": "control",
             "type": "channel",
             "common": {
-                "name": "Control"
+                "name": "debug controls"
             },
             "native": {}
         },
@@ -161,7 +174,7 @@
             "type": "state",
             "common": {
                 "role": "button",
-                "name": "Disconnect from OnlyCat API",
+                "name": "disconnect from OnlyCat API",
                 "type": "boolean",
                 "read": false,
                 "write": true,
@@ -174,7 +187,7 @@
             "type": "state",
             "common": {
                 "role": "button",
-                "name": "Reconnect to OnlyCat API",
+                "name": "reconnect to OnlyCat API",
                 "type": "boolean",
                 "read": false,
                 "write": true,
@@ -187,7 +200,7 @@
             "type": "state",
             "common": {
                 "role": "button",
-                "name": "Get events from OnlyCat API",
+                "name": "get events from OnlyCat API",
                 "type": "boolean",
                 "read": false,
                 "write": true,
@@ -199,7 +212,7 @@
             "_id": "info",
             "type": "channel",
             "common": {
-                "name": "Information"
+                "name": "information"
             },
             "native": {}
         },
@@ -208,7 +221,7 @@
             "type": "state",
             "common": {
                 "role": "indicator.connected",
-                "name": "If connected to surepetcare api",
+                "name": "is connected to OnlyCat API",
                 "type": "boolean",
                 "read": true,
                 "write": false,
@@ -221,7 +234,7 @@
             "type": "state",
             "common": {
                 "role": "date",
-                "name": "Last time data received from surepetcare api",
+                "name": "last time data received from OnlyCat API",
                 "type": "string",
                 "read": true,
                 "write": false,
@@ -234,7 +247,7 @@
             "type": "state",
             "common": {
                 "role": "info.version",
-                "name": "Adapter version",
+                "name": "adapter version",
                 "type": "string",
                 "read": true,
                 "write": false,

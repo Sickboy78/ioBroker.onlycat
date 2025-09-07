@@ -19,7 +19,7 @@ const OnlyCatApi = require('./lib/onlycat-api');
 
 // Constants
 // Adapter version
-const ADAPTER_VERSION = '0.4.0';
+const ADAPTER_VERSION = '0.5.0';
 // Reconnect frequency
 const RETRY_FREQUENCY_CONNECT = 60;
 // Minimum Event Update frequency
@@ -77,6 +77,10 @@ class Template extends utils.Adapter {
         this.rfids = [];
         // list of RFID profiles
         this.rfidProfiles = {};
+        // list of transit policy IDs
+        this.transitPolicyIds = [];
+        // list of transit policies
+        this.transitPolicies = [];
         // list of events
         this.events = undefined;
         // list of previous events
@@ -103,6 +107,7 @@ class Template extends utils.Adapter {
 
         // subscribe to control state changes
         this.subscribeStates('control.*');
+        this.subscribeStates('*.control.*');
 
         // connect to OnlyCat API via socket.io and retrieve data
         this.log.debug(`Starting OnlyCat Adapter v${ADAPTER_VERSION}`);
@@ -169,6 +174,19 @@ class Template extends utils.Adapter {
                 } else if (control === 'getEvents') {
                     this.log.info(`GetEvents Button pressed: ${state.val}`);
                     this.getAndUpdateEvents();
+                } else if (control === 'deviceTransitPolicyId' && pathElements.length > 2) {
+                    const deviceName = pathElements[pathElements.length - 3];
+                    const deviceIndex = this.getDeviceIndexForDeviceDescription(deviceName);
+                    if (deviceIndex !== undefined) {
+                        if (typeof state.val === 'number') {
+                            this.setTransitPolicyForDevice(this.devices[deviceIndex].deviceId, state.val).catch(
+                                error => {
+                                    this.log.error(error);
+                                    this.resetTransitPolicyForDevice(deviceIndex);
+                                },
+                            );
+                        }
+                    }
                 }
             }
         }
@@ -206,13 +224,17 @@ class Template extends utils.Adapter {
         this.log.info(`Connecting...`);
         this.connectToApi()
             .then(() => this.getDevices())
+            .then(() => this.getDevicesDetails())
             .then(() => this.getRfids())
             .then(() => this.getRfidProfiles())
             .then(() => this.getEvents())
+            .then(() => this.getTransitPolicyIds())
+            .then(() => this.getTransitPolicies())
             .then(() => this.createAdapterObjectHierarchy())
             .then(() => this.updateDevices())
             .then(() => this.updateEvents())
             .then(() => this.updateLatestEvents())
+            .then(() => this.updateTransitPolicies())
             .then(() => this.updateAdapterVersion())
             .then(() => this.subscribeEvents())
             .catch(error => {
@@ -296,7 +318,8 @@ class Template extends utils.Adapter {
     subscribeEvents() {
         return new Promise(resolve => {
             this.log.debug(`Subscribing to events...`);
-            this.api.subscribeToEvent('userEventUpdate', data => this.onEventReceived(data));
+            this.api.subscribeToEvent('userEventUpdate', data => this.onEventUpdateReceived(data));
+            this.api.subscribeToEvent('deviceUpdate', data => this.onDeviceUpdateReceived(data));
             this.log.debug(`Events subscribed.`);
             return resolve();
         });
@@ -308,6 +331,7 @@ class Template extends utils.Adapter {
     unsubscribeEvents() {
         this.log.debug(`Unsubscribing from events...`);
         this.api.unsubscribeFromEvent('userEventUpdate');
+        this.api.unsubscribeFromEvent('deviceUpdate');
         this.log.debug(`Events unsubscribed.`);
     }
 
@@ -323,6 +347,7 @@ class Template extends utils.Adapter {
                 this.log.debug(`User changed, getting Events.`);
                 this.resetEventUpdateCounter();
                 this.getAndUpdateEvents();
+                this.getAndUpdateDevicesAndTransitPolicies();
             }
             this.currentUser = user;
         }
@@ -349,15 +374,36 @@ class Template extends utils.Adapter {
     }
 
     /**
-     * Handles received events.
+     * Handles received event updates.
      *
      * @param {any} data the received event data
      */
-    onEventReceived(data) {
+    onEventUpdateReceived(data) {
         this.log.debug(`Received event update.`);
         this.log.silly(`Received event update: ${JSON.stringify(data)}`);
         this.resetEventUpdateCounter();
         this.getAndUpdateEvents();
+    }
+
+    /**
+     * Handles received device updates.
+     *
+     * @param {any} data the received device data
+     */
+    onDeviceUpdateReceived(data) {
+        this.log.debug(`Received device update.`);
+        this.log.silly(`Received device update: ${JSON.stringify(data)}`);
+        let deviceIds = [];
+        if (Array.isArray(data)) {
+            for (let d = 0; d < data.length; d++) {
+                if ('deviceId' in data[d]) {
+                    deviceIds.push(data[d].deviceId);
+                }
+            }
+        }
+        this.getAndUpdateDevicesAndTransitPoliciesForDeviceIds(
+            deviceIds.length !== 0 ? deviceIds : this.getAllDeviceIds(),
+        );
     }
 
     /**
@@ -383,6 +429,30 @@ class Template extends utils.Adapter {
                     this.lastError = error.message;
                 }
                 this.log.warn(`Event update failed.`);
+            });
+    }
+
+    /**
+     * Gets and updates all devices and transit policies.
+     */
+    getAndUpdateDevicesAndTransitPolicies() {
+        this.getAndUpdateDevicesAndTransitPoliciesForDeviceIds(this.getAllDeviceIds());
+    }
+
+    /**
+     * Gets and updates the given devices and their transit policies.
+     *
+     * @param {Array} deviceIds an array of device IDs
+     */
+    getAndUpdateDevicesAndTransitPoliciesForDeviceIds(deviceIds) {
+        this.getDevices()
+            .then(() => this.getDevicesDetailsForDeviceIds(deviceIds))
+            .then(() => this.getTransitPolicies())
+            .then(() => this.updateDevicesForDeviceIds(deviceIds))
+            .then(() => this.updateTransitPoliciesForDeviceIds(deviceIds))
+            .catch(error => {
+                this.log.error(error);
+                this.log.warn(`Device and transit policy update failed.`);
             });
     }
 
@@ -416,6 +486,84 @@ class Template extends utils.Adapter {
                             this.devices.length === 1 ? `Got 1 device.` : `Got ${this.devices.length} devices.`,
                         );
                         this.log.silly(`Getting devices response: '${JSON.stringify(response)}'.`);
+                        return resolve();
+                    })
+                    .catch(error => {
+                        reject(error);
+                    });
+            }
+        });
+    }
+
+    /**
+     * Get devices details from OnlyCat API.
+     *
+     * @returns {Promise<void>}
+     */
+    getDevicesDetails() {
+        return this.getDevicesDetailsForDeviceIds(this.getAllDeviceIds());
+    }
+
+    /**
+     * Get devices details for the given device IDs from OnlyCat API.
+     *
+     * @param {Array} deviceIds an array of device IDs
+     * @returns {Promise<void>}
+     */
+    getDevicesDetailsForDeviceIds(deviceIds) {
+        return new Promise((resolve, reject) => {
+            if (this.adapterUnloaded) {
+                reject(`Can not get devices details, adapter already unloaded.`);
+            } else {
+                const promiseArray = [];
+                this.log.debug(`Getting devices details...`);
+                for (let d = 0; d < this.devices.length; d++) {
+                    if (deviceIds.includes(this.devices[d].deviceId)) {
+                        promiseArray.push(this.getDeviceDetailsForDevice(d));
+                    }
+                }
+                Promise.all(promiseArray)
+                    .then(() => {
+                        this.log.debug(
+                            this.devices.length === 1
+                                ? `Got 1 device details.`
+                                : `Got ${deviceIds.length} device details.`,
+                        );
+                        return resolve();
+                    })
+                    .catch(error => {
+                        this.log.warn(`Could not get device details (${error}).`);
+                        return reject();
+                    });
+            }
+        });
+    }
+
+    /**
+     * Get device details for a device from OnlyCat API.
+     *
+     * @param {number} deviceIndex a device index within this.devices
+     * @returns {Promise<void>}
+     */
+    getDeviceDetailsForDevice(deviceIndex) {
+        return new Promise((resolve, reject) => {
+            const deviceId = this.devices[deviceIndex].deviceId;
+            if (this.adapterUnloaded) {
+                reject(`Can not get device details for device ID '${deviceId}', adapter already unloaded.`);
+            } else {
+                this.log.debug(`Getting device details for device ID '${deviceId}'...`);
+                this.api
+                    .request('getDevice', { deviceId: deviceId, subscribe: true })
+                    .then(response => {
+                        if ('firmwareChannel' in response) {
+                            this.devices[deviceIndex].firmwareChannel = response.firmwareChannel;
+                        }
+                        if ('connectivity' in response) {
+                            this.devices[deviceIndex].connectivity = response.connectivity;
+                        }
+                        this.log.silly(
+                            `Getting device details for device ID '${deviceId}' response: '${JSON.stringify(response)}'.`,
+                        );
                         return resolve();
                     })
                     .catch(error => {
@@ -565,6 +713,148 @@ class Template extends utils.Adapter {
     }
 
     /**
+     * Get Transit Policy IDs from OnlyCat API.
+     *
+     * @returns {Promise<void>}
+     */
+    getTransitPolicyIds() {
+        return new Promise((resolve, reject) => {
+            if (this.adapterUnloaded) {
+                reject(`Can not get transit policy IDs, adapter already unloaded.`);
+            } else {
+                const promiseArray = [];
+                this.transitPolicyIds = [];
+                this.log.debug(`Getting transit policy IDs...`);
+                for (let d = 0; d < this.devices.length; d++) {
+                    promiseArray.push(this.getTransitPolicyIDsForDevice(this.devices[d].deviceId));
+                }
+                Promise.all(promiseArray)
+                    .then(() => {
+                        this.log.debug(
+                            this.transitPolicyIds.length === 1
+                                ? `Got 1 transit policy ID.`
+                                : `Got ${this.transitPolicyIds.length} transit policy IDs.`,
+                        );
+                        return resolve();
+                    })
+                    .catch(error => {
+                        this.log.warn(`Could not get transit policy IDs (${error}).`);
+                        return reject();
+                    });
+            }
+        });
+    }
+
+    /**
+     * Get Transit Policy IDs from OnlyCat API.
+     *
+     * @param {string} deviceId a device id
+     * @returns {Promise<void>}
+     */
+    getTransitPolicyIDsForDevice(deviceId) {
+        return new Promise((resolve, reject) => {
+            if (this.adapterUnloaded) {
+                reject(`Can not get transit policy IDs, adapter already unloaded.`);
+            } else {
+                this.log.debug(`Getting transit policy IDs for device '${deviceId}'...`);
+                this.api
+                    .request('getDeviceTransitPolicies', { deviceId: deviceId })
+                    .then(response => {
+                        for (let p = 0; p < response.length; p++) {
+                            if ('deviceTransitPolicyId' in response[p]) {
+                                this.transitPolicyIds.push(response[p].deviceTransitPolicyId);
+                            }
+                        }
+                        this.log.debug(
+                            response.length === 1
+                                ? `Got 1 transit policy ID for '${deviceId}'.`
+                                : `Got ${response.length} transit policy IDs for '${deviceId}'.`,
+                        );
+                        this.log.silly(`Getting transit policy IDs response: '${JSON.stringify(response)}'.`);
+                        return resolve();
+                    })
+                    .catch(error => {
+                        reject(error);
+                    });
+            }
+        });
+    }
+
+    /**
+     * Get Transit Policies from OnlyCat API.
+     *
+     * @returns {Promise<void>}
+     */
+    getTransitPolicies() {
+        return new Promise((resolve, reject) => {
+            if (this.adapterUnloaded) {
+                reject(`Can not get transit policies, adapter already unloaded.`);
+            } else {
+                const promiseArray = [];
+                this.transitPolicies = [];
+                this.log.debug(`Getting transit policies...`);
+                for (let i = 0; i < this.transitPolicyIds.length; i++) {
+                    promiseArray.push(this.getTransitPolicyForPolicyID(this.transitPolicyIds[i]));
+                }
+                Promise.all(promiseArray)
+                    .then(() => {
+                        this.log.debug(
+                            this.transitPolicyIds.length === 1
+                                ? `Got 1 transit policy ID.`
+                                : `Got ${this.transitPolicyIds.length} transit policy IDs.`,
+                        );
+                        return resolve();
+                    })
+                    .catch(error => {
+                        this.log.warn(`Could not get transit policy IDs (${error}).`);
+                        return reject();
+                    });
+            }
+        });
+    }
+
+    /**
+     * Get Transit Policy from OnlyCat API.
+     *
+     * @param {number} deviceTransitPolicyId a transit policy ID
+     * @returns {Promise<void>}
+     */
+    getTransitPolicyForPolicyID(deviceTransitPolicyId) {
+        return new Promise((resolve, reject) => {
+            if (this.adapterUnloaded) {
+                reject(`Can not get transit policy, adapter already unloaded.`);
+            } else {
+                this.log.debug(`Getting transit policy for transit policy ID '${deviceTransitPolicyId}'...`);
+                this.api
+                    .request('getDeviceTransitPolicy', { deviceTransitPolicyId: deviceTransitPolicyId })
+                    .then(response => {
+                        this.transitPolicies[deviceTransitPolicyId] = response;
+                        if ('name' in this.transitPolicies[deviceTransitPolicyId]) {
+                            this.transitPolicies[deviceTransitPolicyId].name_org =
+                                this.transitPolicies[deviceTransitPolicyId].name;
+                            this.transitPolicies[deviceTransitPolicyId].name = this.normalizeString(
+                                this.transitPolicies[deviceTransitPolicyId].name,
+                            );
+                            if (
+                                this.transitPolicies[deviceTransitPolicyId].name_org !==
+                                this.transitPolicies[deviceTransitPolicyId].name
+                            ) {
+                                this.log.debug(
+                                    `Normalizing transit policy name from: '${this.transitPolicies[deviceTransitPolicyId].name_org}' to '${this.transitPolicies[deviceTransitPolicyId].name}'`,
+                                );
+                            }
+                        }
+                        this.log.silly(`Getting transit policy response: '${JSON.stringify(response)}'.`);
+                        return resolve();
+                    })
+                    .catch(error => {
+                        reject(error);
+                    });
+            }
+        });
+    }
+
+    /**
      * Get events from OnlyCat API.
      *
      * @returns {Promise<void>}
@@ -625,6 +915,56 @@ class Template extends utils.Adapter {
         }
     }
 
+    /**
+     * Set active Transit Policy for device to OnlyCat API.
+     *
+     * @param {string} deviceId a device ID
+     * @param {number} deviceTransitPolicyId a transit policy ID
+     * @returns {Promise<void>}
+     */
+    setTransitPolicyForDevice(deviceId, deviceTransitPolicyId) {
+        return new Promise((resolve, reject) => {
+            if (this.adapterUnloaded) {
+                reject(`Can not set active transit policy, adapter already unloaded.`);
+            } else {
+                this.log.debug(`Setting active transit policy '${deviceTransitPolicyId}' for device '${deviceId}'...`);
+                this.api
+                    .request('activateDeviceTransitPolicy', {
+                        deviceId: deviceId,
+                        deviceTransitPolicyId: deviceTransitPolicyId,
+                    })
+                    .then(response => {
+                        this.log.silly(
+                            `Setting active transit policy '${deviceTransitPolicyId}' for device '${deviceId}' response: '${JSON.stringify(response)}'.`,
+                        );
+                        return resolve();
+                    })
+                    .catch(error => {
+                        reject(error);
+                    });
+            }
+        });
+    }
+
+    /**
+     * Reset active Transit Policy for device to OnlyCat API.
+     *
+     * @param {number} deviceIndex a device index
+     */
+    resetTransitPolicyForDevice(deviceIndex) {
+        const objName = `${this.devices[deviceIndex].description}.control.deviceTransitPolicyId`;
+        const value = this.devices[deviceIndex].deviceTransitPolicyId;
+
+        this.log.debug(
+            `resetting deviceTransitPolicyId for device '${this.devices[deviceIndex].description}' to: '${value}'`,
+        );
+        this.setState(objName, value, true).catch(error => {
+            this.log.error(
+                `Could not reset deviceTransitPolicyId for device '${this.devices[deviceIndex].description}' because: '${error}'`,
+            );
+        });
+    }
+
     /************************************************
      * methods to initially create object hierarchy *
      ************************************************/
@@ -637,9 +977,12 @@ class Template extends utils.Adapter {
     createAdapterObjectHierarchy() {
         return new Promise((resolve, reject) => {
             this.log.debug(`Creating object hierarchy...`);
-            this.createDevicesToAdapter()
-                .then(() => this.createEventsToAdapter())
-                .then(() => this.createPetsToAdapter())
+            this.getAdapterVersionFromAdapter()
+                .then(version => this.removeDeprecatedDataFromAdapter(version))
+                .then(() => this.createDeviceHierarchyToAdapter())
+                .then(() => this.createEventHierarchyToAdapter())
+                .then(() => this.createPetHierarchyToAdapter())
+                .then(() => this.createTransitPolicyHierarchyToAdapter())
                 .then(() => {
                     this.log.debug(`Object hierarchy created.`);
                     return resolve();
@@ -652,54 +995,17 @@ class Template extends utils.Adapter {
     }
 
     /**
-     * Creates device hierarchy data structures in the adapter.
+     * Creates device hierarchy data structures to the adapter.
      *
      * @returns {Promise<void>}
      */
-    createDevicesToAdapter() {
+    createDeviceHierarchyToAdapter() {
         return new Promise((resolve, reject) => {
             const promiseArray = [];
 
             // create devices
             for (let d = 0; d < this.devices.length; d++) {
-                const objName = this.devices[d].description;
-
-                this.setObjectNotExists(
-                    objName,
-                    this.buildDeviceObject(`Device '${this.devices[d].description_org}' (${this.devices[d].deviceId})`),
-                    () => {
-                        promiseArray.push(
-                            this.setObjectNotExistsAsync(
-                                `${objName}.deviceId`,
-                                this.buildStateObject('id of the device', 'text', 'string'),
-                            ),
-                        );
-                        promiseArray.push(
-                            this.setObjectNotExistsAsync(
-                                `${objName}.description`,
-                                this.buildStateObject('description of the device', 'text', 'string'),
-                            ),
-                        );
-                        promiseArray.push(
-                            this.setObjectNotExistsAsync(
-                                `${objName}.timeZone`,
-                                this.buildStateObject('timeZone of the device', 'text', 'string'),
-                            ),
-                        );
-                        promiseArray.push(
-                            this.setObjectNotExistsAsync(
-                                `${objName}.deviceTransitPolicyId`,
-                                this.buildStateObject('deviceTransitPolicyId of the device', 'text', 'number'),
-                            ),
-                        );
-                        promiseArray.push(
-                            this.setObjectNotExistsAsync(
-                                `${objName}.cursorId`,
-                                this.buildStateObject('cursorId of the device', 'text', 'number'),
-                            ),
-                        );
-                    },
-                );
+                promiseArray.push(this.createDeviceHierarchyForDeviceToAdapter(d));
             }
 
             Promise.all(promiseArray)
@@ -714,44 +1020,110 @@ class Template extends utils.Adapter {
     }
 
     /**
-     * Creates event hierarchy data structures in the adapter.
+     * Creates device hierarchy data structures for a device to the adapter.
      *
+     * @param {number} deviceIndex a device index within this.devices
      * @returns {Promise<void>}
      */
-    createEventsToAdapter() {
+    createDeviceHierarchyForDeviceToAdapter(deviceIndex) {
         return new Promise((resolve, reject) => {
             const promiseArray = [];
-            for (let d = 0; d < this.devices.length; d++) {
-                const objName = this.devices[d].description;
-                promiseArray.push(this.createEventsAsJsonToAdapter(objName));
-                promiseArray.push(this.createEventsAsStateObjectsToAdapter(objName));
-            }
-            Promise.all(promiseArray)
-                .then(() => {
-                    return resolve();
-                })
-                .catch(error => {
-                    this.log.warn(`Could not create adapter events hierarchy (${error}).`);
-                    return reject();
-                });
+
+            // create device
+            const objName = this.devices[deviceIndex].description;
+
+            this.setObjectNotExists(
+                objName,
+                this.buildDeviceObject(
+                    `device '${this.devices[deviceIndex].description_org}' (${this.devices[deviceIndex].deviceId})`,
+                ),
+                () => {
+                    this.setObjectNotExists(
+                        `${objName}.connectivity`,
+                        this.buildChannelObject(
+                            `connectivity state of the device '${this.devices[deviceIndex].description_org}'`,
+                        ),
+                        () => {
+                            this.setObjectNotExists(
+                                `${objName}.control`,
+                                this.buildChannelObject(
+                                    `controllable states for device '${this.devices[deviceIndex].description_org}'`,
+                                ),
+                                () => {
+                                    promiseArray.push(
+                                        this.setObjectNotExistsAsync(
+                                            `${objName}.deviceId`,
+                                            this.buildStateObject('id of the device', 'text', 'string'),
+                                        ),
+                                        this.setObjectNotExistsAsync(
+                                            `${objName}.description`,
+                                            this.buildStateObject('description of the device', 'text', 'string'),
+                                        ),
+                                        this.setObjectNotExistsAsync(
+                                            `${objName}.firmwareChannel`,
+                                            this.buildStateObject('firmwareChannel of the device', 'text', 'string'),
+                                        ),
+                                        this.setObjectNotExistsAsync(
+                                            `${objName}.timeZone`,
+                                            this.buildStateObject('timeZone of the device', 'text', 'string'),
+                                        ),
+                                        this.setObjectNotExistsAsync(
+                                            `${objName}.cursorId`,
+                                            this.buildStateObject('cursorId of the device', 'text', 'number'),
+                                        ),
+                                        this.setObjectNotExistsAsync(
+                                            `${objName}.connectivity.connected`,
+                                            this.buildStateObject('is the device connected'),
+                                        ),
+                                        this.setObjectNotExistsAsync(
+                                            `${objName}.connectivity.disconnectReason`,
+                                            this.buildStateObject('disconnect reason', 'text', 'string'),
+                                        ),
+                                        this.setObjectNotExistsAsync(
+                                            `${objName}.connectivity.timestamp`,
+                                            this.buildStateObject('timestamp', 'date', 'string'),
+                                        ),
+                                        this.setObjectNotExistsAsync(
+                                            `${objName}.control.deviceTransitPolicyId`,
+                                            this.buildStateObject(
+                                                'deviceTransitPolicyId of the device',
+                                                'text',
+                                                'number',
+                                                false,
+                                            ),
+                                        ),
+                                    );
+
+                                    Promise.all(promiseArray)
+                                        .then(() => {
+                                            return resolve();
+                                        })
+                                        .catch(error => {
+                                            this.log.warn(`Could not create adapter device hierarchy (${error}).`);
+                                            return reject();
+                                        });
+                                },
+                            );
+                        },
+                    );
+                },
+            );
         });
     }
 
     /**
-     * Creates pet hierarchy data structures in the adapter.
+     * Creates event hierarchy data structures in the adapter.
      *
      * @returns {Promise<void>}
      */
-    createPetsToAdapter() {
+    createEventHierarchyToAdapter() {
         return new Promise((resolve, reject) => {
             const promiseArray = [];
             for (let d = 0; d < this.devices.length; d++) {
                 const objName = this.devices[d].description;
                 promiseArray.push(
-                    this.setObjectNotExistsAsync(
-                        `${objName}.pets`,
-                        this.buildChannelObject('status und latest events for pets'),
-                    ),
+                    this.createEventsAsJsonToAdapter(objName),
+                    this.createEventsAsStateObjectsToAdapter(objName),
                 );
             }
             Promise.all(promiseArray)
@@ -759,7 +1131,7 @@ class Template extends utils.Adapter {
                     return resolve();
                 })
                 .catch(error => {
-                    this.log.warn(`Could not create adapter pets hierarchy (${error}).`);
+                    this.log.warn(`Could not create adapter events hierarchy (${error}).`);
                     return reject();
                 });
         });
@@ -841,56 +1213,38 @@ class Template extends utils.Adapter {
                         `${objName}.accessToken`,
                         this.buildStateObject('Access token', 'text', 'string'),
                     ),
-                );
-                promiseArray.push(
                     this.setObjectNotExistsAsync(
                         `${objName}.deviceId`,
                         this.buildStateObject('Device ID', 'text', 'string'),
                     ),
-                );
-                promiseArray.push(
                     this.setObjectNotExistsAsync(
                         `${objName}.eventClassification`,
                         this.buildStateObject('Event classification', 'text', 'number', true, EVENT_CLASSIFICATION),
                     ),
-                );
-                promiseArray.push(
                     this.setObjectNotExistsAsync(
                         `${objName}.eventId`,
                         this.buildStateObject('Event ID', 'text', 'number'),
                     ),
-                );
-                promiseArray.push(
                     this.setObjectNotExistsAsync(
                         `${objName}.eventTriggerSource`,
                         this.buildStateObject('Event trigger source', 'text', 'number', true, EVENT_TRIGGER_SOURCE),
                     ),
-                );
-                promiseArray.push(
                     this.setObjectNotExistsAsync(
                         `${objName}.frameCount`,
                         this.buildStateObject('Frame count', 'text', 'number'),
                     ),
-                );
-                promiseArray.push(
                     this.setObjectNotExistsAsync(
                         `${objName}.globalId`,
                         this.buildStateObject('Global ID', 'text', 'number'),
                     ),
-                );
-                promiseArray.push(
                     this.setObjectNotExistsAsync(
                         `${objName}.posterFrameIndex`,
                         this.buildStateObject('Poster frame index', 'text', 'number'),
                     ),
-                );
-                promiseArray.push(
                     this.setObjectNotExistsAsync(
                         `${objName}.rfidCodes`,
                         this.buildStateObject('RFID codes', 'list', 'array'),
                     ),
-                );
-                promiseArray.push(
                     this.setObjectNotExistsAsync(
                         `${objName}.timestamp`,
                         this.buildStateObject('Timestamp', 'date', 'string'),
@@ -927,6 +1281,143 @@ class Template extends utils.Adapter {
 				  ];
 	 */
 
+    /**
+     * Creates pet hierarchy data structures in the adapter.
+     *
+     * @returns {Promise<void>}
+     */
+    createPetHierarchyToAdapter() {
+        return new Promise((resolve, reject) => {
+            const promiseArray = [];
+            for (let d = 0; d < this.devices.length; d++) {
+                const objName = this.devices[d].description;
+                promiseArray.push(
+                    this.setObjectNotExistsAsync(
+                        `${objName}.pets`,
+                        this.buildChannelObject('status und latest events for pets'),
+                    ),
+                );
+            }
+            Promise.all(promiseArray)
+                .then(() => {
+                    return resolve();
+                })
+                .catch(error => {
+                    this.log.warn(`Could not create adapter pets hierarchy (${error}).`);
+                    return reject();
+                });
+        });
+    }
+
+    /**
+     * Creates transit policies hierarchy data structures in the adapter.
+     *
+     * @returns {Promise<void>}
+     */
+    createTransitPolicyHierarchyToAdapter() {
+        return new Promise((resolve, reject) => {
+            const promiseArray = [];
+            for (let d = 0; d < this.devices.length; d++) {
+                promiseArray.push(this.createTransitPolicyHierarchyForDeviceToAdapter(d));
+                promiseArray.push(this.removeDeletedTransitPoliciesForDeviceFromAdapter(d));
+            }
+            Promise.all(promiseArray)
+                .then(() => {
+                    return resolve();
+                })
+                .catch(error => {
+                    this.log.warn(`Could not create adapter transit policies hierarchy (${error}).`);
+                    return reject();
+                });
+        });
+    }
+
+    /**
+     * Creates transit policies hierarchy data structures for a device in the adapter.
+     *
+     * @param {number} deviceIndex a device index of the devices array
+     * @returns {Promise<void>}
+     */
+    createTransitPolicyHierarchyForDeviceToAdapter(deviceIndex) {
+        return new Promise((resolve, reject) => {
+            const promiseArray = [];
+            const deviceName = this.devices[deviceIndex].description;
+            this.setObjectNotExists(
+                `${deviceName}.transitPolicies`,
+                this.buildChannelObject('transit policies of the device'),
+                () => {
+                    for (let i = 0; i < this.transitPolicyIds.length; i++) {
+                        promiseArray.push(
+                            this.createTransitPolicyForDeviceToAdapter(deviceIndex, this.transitPolicyIds[i]),
+                        );
+                    }
+                    Promise.all(promiseArray)
+                        .then(() => {
+                            return resolve();
+                        })
+                        .catch(error => {
+                            this.log.warn(`Could not create adapter transit policies hierarchy (${error}).`);
+                            return reject();
+                        });
+                },
+            );
+        });
+    }
+
+    /**
+     * Creates transit policies hierarchy data structures for a device in the adapter.
+     *
+     * @param {number} deviceIndex a device index of the devices array
+     * @param {number} policyId a transit policy ID
+     * @returns {Promise<void>}
+     */
+    createTransitPolicyForDeviceToAdapter(deviceIndex, policyId) {
+        return new Promise((resolve, reject) => {
+            const promiseArray = [];
+            const deviceName = this.devices[deviceIndex].description;
+            const policyName = this.transitPolicies[policyId].name;
+            const objName = `${deviceName}.transitPolicies.${policyName}`;
+            this.setObjectNotExists(
+                objName,
+                this.buildFolderObject(`transit policy '${policyName}' (${policyId})`),
+                () => {
+                    promiseArray.push(
+                        this.setObjectNotExistsAsync(
+                            `${objName}.deviceTransitPolicyId`,
+                            this.buildStateObject('transit policy ID', 'text', 'number'),
+                        ),
+                        this.setObjectNotExistsAsync(
+                            `${objName}.deviceId`,
+                            this.buildStateObject('device ID', 'text', 'string'),
+                        ),
+                        this.setObjectNotExistsAsync(
+                            `${objName}.name`,
+                            this.buildStateObject('transit policy name', 'text', 'string'),
+                        ),
+                        this.setObjectNotExistsAsync(
+                            `${objName}.transitPolicy`,
+                            this.buildStateObject('transit policy json', 'json', 'string'),
+                        ),
+                        this.setObjectNotExistsAsync(
+                            `${objName}.active`,
+                            this.buildStateObject('is transit policy active'),
+                        ),
+                    );
+                    Promise.all(promiseArray)
+                        .then(() => {
+                            return resolve();
+                        })
+                        .catch(error => {
+                            this.log.warn(
+                                `Could not create adapter transit policy hierarchy for device '${this.devices[deviceIndex].deviceId}' and transit policy '${policyId}' (${error}).`,
+                            );
+                            return reject();
+                        });
+                },
+            );
+        });
+    }
+
     /****************************************
      * methods to set values to the adapter *
      ****************************************/
@@ -939,17 +1430,95 @@ class Template extends utils.Adapter {
     updateDevices() {
         return new Promise((resolve, reject) => {
             if (this.devices) {
+                const promiseArray = [];
                 for (let d = 0; d < this.devices.length; d++) {
-                    const objName = this.devices[d].description;
-                    this.setState(`${objName}.deviceId`, this.devices[d].deviceId, true);
-                    this.setState(`${objName}.description`, this.devices[d].description, true);
-                    this.setState(`${objName}.timeZone`, this.devices[d].timeZone, true);
-                    this.setState(`${objName}.deviceTransitPolicyId`, this.devices[d].deviceTransitPolicyId, true);
-                    this.setState(`${objName}.cursorId`, this.devices[d].cursorId, true);
+                    promiseArray.push(this.updateDevice(d));
                 }
-                return resolve();
+                Promise.all(promiseArray)
+                    .then(() => {
+                        return resolve();
+                    })
+                    .catch(error => {
+                        this.log.warn(`Could not update devices (${error}).`);
+                        return reject();
+                    });
+            } else {
+                return reject(new Error(`no device data found.`));
             }
-            return reject(new Error(`no device data found.`));
+        });
+    }
+
+    /**
+     * Update devices for given device IDs with the received data.
+     *
+     * @param {Array} deviceIds an array of device IDs
+     * @returns {Promise<void>}
+     */
+    updateDevicesForDeviceIds(deviceIds) {
+        return new Promise((resolve, reject) => {
+            if (this.devices) {
+                const promiseArray = [];
+                for (let d = 0; d < this.devices.length; d++) {
+                    if (deviceIds.includes(this.devices[d].deviceId)) {
+                        promiseArray.push(this.updateDevice(d));
+                    }
+                }
+                Promise.all(promiseArray)
+                    .then(() => {
+                        return resolve();
+                    })
+                    .catch(error => {
+                        this.log.warn(`Could not update devices (${error}).`);
+                        return reject();
+                    });
+            } else {
+                return reject(new Error(`no device data found.`));
+            }
+        });
+    }
+
+    /**
+     * Update a device with the received data.
+     *
+     * @param {number} deviceIndex a device index within this.devices
+     * @returns {Promise<void>}
+     */
+    updateDevice(deviceIndex) {
+        return new Promise((resolve, reject) => {
+            if (this.devices[deviceIndex] && 'description' in this.devices[deviceIndex]) {
+                const promiseArray = [];
+                const objName = this.devices[deviceIndex].description;
+                const objNameCon = `${objName}.connectivity`;
+                promiseArray.push(
+                    this.setState(`${objName}.deviceId`, this.devices[deviceIndex].deviceId, true),
+                    this.setState(`${objName}.description`, this.devices[deviceIndex].description, true),
+                    this.setState(`${objName}.firmwareChannel`, this.devices[deviceIndex].firmwareChannel, true),
+                    this.setState(`${objName}.timeZone`, this.devices[deviceIndex].timeZone, true),
+                    this.setState(`${objName}.cursorId`, this.devices[deviceIndex].cursorId, true),
+                    this.setState(`${objNameCon}.connected`, this.devices[deviceIndex].connectivity.connected, true),
+                    this.setState(
+                        `${objNameCon}.disconnectReason`,
+                        this.devices[deviceIndex].connectivity.disconnectReason,
+                        true,
+                    ),
+                    this.setState(`${objNameCon}.timestamp`, this.devices[deviceIndex].connectivity.timestamp, true),
+                    this.setState(
+                        `${objName}.control.deviceTransitPolicyId`,
+                        this.devices[deviceIndex].deviceTransitPolicyId,
+                        true,
+                    ),
+                );
+                Promise.all(promiseArray)
+                    .then(() => {
+                        return resolve();
+                    })
+                    .catch(error => {
+                        this.log.warn(`Could not update device at index '${deviceIndex}' (${error}).`);
+                        return reject();
+                    });
+            } else {
+                return reject(new Error(`no device at index '${deviceIndex}' found.`));
+            }
         });
     }
 
@@ -1175,6 +1744,131 @@ class Template extends utils.Adapter {
     }
 
     /**
+     * Updates the transit policies.
+     *
+     * @returns {Promise<void>}
+     */
+    updateTransitPolicies() {
+        return new Promise((resolve, reject) => {
+            if (Array.isArray(this.devices)) {
+                if (Array.isArray(this.transitPolicyIds) && Array.isArray(this.transitPolicies)) {
+                    this.log.debug(`Updating transit policies...`);
+                    const promiseArray = [];
+                    for (let d = 0; d < this.devices.length; d++) {
+                        promiseArray.push(this.updateTransitPoliciesForDevice(d));
+                    }
+                    Promise.all(promiseArray)
+                        .then(() => {
+                            this.log.debug(`Transit policies updated.`);
+                            return resolve();
+                        })
+                        .catch(error => {
+                            this.log.warn(`Could not update transit policies (${error}).`);
+                            return reject();
+                        });
+                } else {
+                    return reject(new Error(`no transit policies data found.`));
+                }
+            } else {
+                return reject(new Error(`no device data found.`));
+            }
+        });
+    }
+
+    /**
+     * Updates the transit policies for the given device IDs.
+     *
+     * @param {Array} deviceIds an array of device IDs
+     * @returns {Promise<void>}
+     */
+    updateTransitPoliciesForDeviceIds(deviceIds) {
+        return new Promise((resolve, reject) => {
+            if (Array.isArray(this.devices)) {
+                if (Array.isArray(this.transitPolicyIds) && Array.isArray(this.transitPolicies)) {
+                    this.log.debug(`Updating transit policies for ${deviceIds.length} devices...`);
+                    const promiseArray = [];
+                    for (let d = 0; d < this.devices.length; d++) {
+                        if (deviceIds.includes(this.devices[d].deviceId)) {
+                            promiseArray.push(this.updateTransitPoliciesForDevice(d));
+                        }
+                    }
+                    Promise.all(promiseArray)
+                        .then(() => {
+                            this.log.debug(`Transit policies updated for ${promiseArray.length} devices.`);
+                            return resolve();
+                        })
+                        .catch(error => {
+                            this.log.warn(`Could not update transit policies (${error}).`);
+                            return reject();
+                        });
+                } else {
+                    return reject(new Error(`no transit policies data found.`));
+                }
+            } else {
+                return reject(new Error(`no device data found.`));
+            }
+        });
+    }
+
+    /**
+     * Updates the transit policies for a device.
+     *
+     * @param {number} deviceIndex a device index
+     * @returns {Promise<void>}
+     */
+    updateTransitPoliciesForDevice(deviceIndex) {
+        return new Promise((resolve, reject) => {
+            if (Array.isArray(this.devices)) {
+                if (Array.isArray(this.transitPolicyIds) && Array.isArray(this.transitPolicies)) {
+                    const deviceId = this.devices[deviceIndex].deviceId;
+                    const deviceDescription = this.devices[deviceIndex].description;
+                    this.log.debug(`Updating transit policies for device '${deviceId}'...`);
+                    const promiseArray = [];
+                    for (let i = 0; i < this.transitPolicyIds.length; i++) {
+                        const policyId = this.transitPolicyIds[i];
+                        if (this.transitPolicies[policyId].deviceId === deviceId) {
+                            const policyName = this.transitPolicies[policyId].name;
+                            const objName = `${deviceDescription}.transitPolicies.${policyName}`;
+                            promiseArray.push(
+                                this.setState(`${objName}.deviceTransitPolicyId`, policyId, true),
+                                this.setState(`${objName}.deviceId`, deviceId, true),
+                                this.setState(`${objName}.name`, this.transitPolicies[policyId].name_org, true),
+                                this.setState(
+                                    `${objName}.transitPolicy`,
+                                    JSON.stringify(this.transitPolicies[policyId].transitPolicy),
+                                    true,
+                                ),
+                                this.setState(
+                                    `${objName}.active`,
+                                    this.devices[deviceIndex].deviceTransitPolicyId === policyId,
+                                    true,
+                                ),
+                            );
+                        }
+                    }
+                    Promise.all(promiseArray)
+                        .then(() => {
+                            this.log.debug(
+                                `Transit policies for device '${this.devices[deviceIndex].deviceId}' updated.`,
+                            );
+                            return resolve();
+                        })
+                        .catch(error => {
+                            this.log.warn(
+                                `Could not update transit policies for device '${this.devices[deviceIndex].deviceId}' (${error}).`,
+                            );
+                            return reject();
+                        });
+                } else {
+                    return reject(new Error(`no transit policies data found.`));
+                }
+            } else {
+                return reject(new Error(`no device data found.`));
+            }
+        });
+    }
+
+    /**
      * Calculates the latest events per pet rfid.
      *
      * @returns {any} an object with latest events per pet rfid
@@ -1286,9 +1980,276 @@ class Template extends utils.Adapter {
         this.setState('info.lastUpdate', new Date().toISOString(), true);
     }
 
+    /***************************************
+     * methods to get objects from adapter *
+     ***************************************/
+
+    /**
+     * reads adapter version from the adapter
+     *
+     * @returns {Promise} Promise of a version string
+     */
+    getAdapterVersionFromAdapter() {
+        return new Promise(resolve => {
+            this.getStateValueFromAdapter('info.version')
+                .then(version => {
+                    if (version === undefined || version === null) {
+                        this.log.silly(`getting adapter version failed because it was null or empty`);
+                        this.log.debug(`last running adapter version is unknown.`);
+                        return resolve('unknown');
+                    }
+                    this.log.debug(`last running adapter version is '${version}'.`);
+                    return resolve(version);
+                })
+                .catch(err => {
+                    this.log.silly(`getting adapter version failed because '${err}'`);
+                    this.log.debug(`last running adapter version is unknown.`);
+                    return resolve('unknown');
+                });
+        });
+    }
+
+    /**
+     * reads a state value from the adapter
+     *
+     * @param {string} objName an object name
+     * @returns {Promise} Promise of an adapter state value
+     */
+    getStateValueFromAdapter(objName) {
+        return new Promise((resolve, reject) => {
+            this.getState(objName, (err, obj) => {
+                if (obj) {
+                    return resolve(obj.val);
+                }
+                return reject(err);
+            });
+        });
+    }
+
+    /**
+     * gets an object by pattern and type
+     *
+     * @param {string} pattern a object pattern
+     * @param {object} type a object type
+     * @param {boolean} recursive whether to get objects recursive
+     * @returns {Promise} Promise of objects
+     */
+    getObjectsByPatternAndType(pattern, type, recursive) {
+        return new Promise((resolve, reject) => {
+            this.getForeignObjects(pattern, type, [], (err, obj) => {
+                if (!err && obj) {
+                    if (recursive === false) {
+                        const level = pattern.split('.').length;
+                        const newObj = {};
+                        Object.keys(obj).forEach(key => {
+                            if (obj[key]._id.split('.').length === level) {
+                                newObj[key] = obj[key];
+                            }
+                        });
+                        resolve(newObj);
+                    } else {
+                        resolve(obj);
+                    }
+                } else {
+                    reject(err);
+                }
+            });
+        });
+    }
+
+    /**********************************************
+     * methods to delete objects from the adapter *
+     **********************************************/
+
+    /**
+     * Removes deleted or renamed transit policies.
+     *
+     * @param {number} deviceIndex a device index
+     * @returns {Promise<void>}
+     */
+    removeDeletedTransitPoliciesForDeviceFromAdapter(deviceIndex) {
+        return new Promise((resolve, reject) => {
+            if (Array.isArray(this.devices)) {
+                if (Array.isArray(this.transitPolicyIds) && Array.isArray(this.transitPolicies)) {
+                    this.log.debug(
+                        `Removing deleted or renamed transit policies for device '${this.devices[deviceIndex].deviceId}'...`,
+                    );
+                    const promiseArray = [];
+                    const deviceId = this.devices[deviceIndex].deviceId;
+                    const existingTransitPolicies = [];
+                    for (let i = 0; i < this.transitPolicyIds.length; i++) {
+                        const policyId = this.transitPolicyIds[i];
+                        if (this.transitPolicies[policyId].deviceId === deviceId) {
+                            existingTransitPolicies.push(
+                                `transit policy '${this.transitPolicies[policyId].name}' (${policyId})`,
+                            );
+                        }
+                    }
+                    promiseArray.push(
+                        this.getObjectsByPatternAndType(
+                            `${this.name}.${this.instance}.${this.devices[deviceIndex].description}.transitPolicies.*`,
+                            'folder',
+                            false,
+                        ),
+                    );
+                    Promise.all(promiseArray)
+                        .then(objs => {
+                            const deletePromiseArray = [];
+                            objs.forEach(obj => {
+                                if (obj) {
+                                    Object.keys(obj).forEach(key => {
+                                        if (!existingTransitPolicies.includes(obj[key].common.name)) {
+                                            this.log.debug(
+                                                `deleted or renamed transit policy ${obj[key]._id} (${obj[key].common.name}) found. trying to delete (${obj[key].type})`,
+                                            );
+                                            deletePromiseArray.push(
+                                                this.deleteObjectFormAdapterIfExists(obj[key]._id, true),
+                                            );
+                                        }
+                                    });
+                                }
+                            });
+                            Promise.all(deletePromiseArray)
+                                .then(() => {
+                                    this.log.debug(`Deleted or renamed transit policies removed.`);
+                                    return resolve();
+                                })
+                                .catch(error => {
+                                    this.log.warn(`Could not remove deleted or renamed transit policies (${error}).`);
+                                    return reject();
+                                });
+                        })
+                        .catch(error => {
+                            this.log.warn(`Could not remove deleted or renamed transit policies (${error}).`);
+                            return reject();
+                        });
+                } else {
+                    return reject(new Error(`no transit policies data found.`));
+                }
+            } else {
+                return reject(new Error(`no device data found.`));
+            }
+        });
+    }
+
+    /**
+     * removes obsolete data structures from the adapter
+     * When there are changes to the data structures obsolete entries go here.
+     *
+     * @param {string} version a version string in format patch.major.minor or 'unknown'
+     * @returns {Promise<void>} a promise
+     */
+    removeDeprecatedDataFromAdapter(version) {
+        return new Promise(resolve => {
+            const deletePromiseArray = [];
+
+            if (ADAPTER_VERSION !== version && version !== 'unknown') {
+                this.log.info(`adapter was upgraded from '${version}' to '${ADAPTER_VERSION}'.`);
+            }
+
+            this.log.debug(`searching and removing of obsolete objects`);
+
+            if (version === 'unknown' || this.isVersionLessThan(version, '0.5.0')) {
+                this.log.debug(`searching and removing of obsolete objects for adapter versions before 0.5.0`);
+
+                // DEVICE.deviceTransitPolicyId is moved to DEVICE.control.deviceTransitPolicyId
+                for (let d = 0; d < this.devices.length; d++) {
+                    const objName = this.devices[d].description;
+                    deletePromiseArray.push(
+                        this.deleteObjectFormAdapterIfExists(`${objName}.deviceTransitPolicyId`, false),
+                    );
+                }
+            }
+
+            Promise.all(deletePromiseArray)
+                .then(() => {
+                    this.log.debug(`searching and removing of obsolete objects complete`);
+                    return resolve();
+                })
+                .catch(() => {
+                    this.log.warn(
+                        `searching and removing of obsolete objects failed. some obsolete objects may not have been removed.`,
+                    );
+                    return resolve();
+                });
+        });
+    }
+
+    /**
+     * deletes an object from the adapter if it exists
+     *
+     * @param {string} objName an object name
+     * @param {boolean} recursive whether to delete objects recursive
+     * @returns {Promise<void>} a promise
+     */
+    deleteObjectFormAdapterIfExists(objName, recursive) {
+        return new Promise((resolve, reject) => {
+            this.log.silly(`deleting object '${objName}'`);
+            this.getObject(objName, (err, obj) => {
+                if (!err && obj) {
+                    this.log.silly(`found object '${objName}'. trying to delete ...`);
+                    this.delObject(obj._id, { recursive: recursive }, err => {
+                        if (err) {
+                            this.log.error(`could not delete object '${objName}' (${err})`);
+                            return reject();
+                        }
+                        this.log.silly(`deleted object '${objName}'`);
+                        return resolve();
+                    });
+                } else {
+                    this.log.silly(`object '${objName}' not found`);
+                    return resolve();
+                }
+            });
+        });
+    }
+
     /******************
      * helper methods *
      ******************/
+
+    /**
+     * Extracts all device IDs from this.devices
+     *
+     * @returns {Array} an array of device IDs
+     */
+    getAllDeviceIds() {
+        let deviceIds = [];
+        for (let d = 0; d < this.devices.length; d++) {
+            if ('deviceId' in this.devices[d]) {
+                deviceIds.push(this.devices[d].deviceId);
+            }
+        }
+        return deviceIds;
+    }
+
+    /**
+     * compares two version strings in format patch.major.minor
+     *
+     * @param version a version string
+     * @param lessThan a version string
+     * @returns {boolean} true, if version is less than lessThan, false otherwise
+     */
+    isVersionLessThan(version, lessThan) {
+        if (version === undefined || version === null || version === 'unknown' || version.split('.').length < 3) {
+            return false;
+        }
+        if (lessThan === undefined || lessThan === null || lessThan === 'unknown' || lessThan.split('.').length < 3) {
+            return false;
+        }
+        if (version === lessThan) {
+            return false;
+        }
+        const versionObj = version.split('.');
+        const lessThanObj = lessThan.split('.');
+        return (
+            parseInt(versionObj[0]) < parseInt(lessThanObj[0]) ||
+            (versionObj[0] === lessThanObj[0] && parseInt(versionObj[1]) < parseInt(lessThanObj[1])) ||
+            (versionObj[0] === lessThanObj[0] &&
+                versionObj[1] === lessThanObj[1] &&
+                parseInt(versionObj[2]) < parseInt(lessThanObj[2]))
+        );
+    }
 
     /**
      * Generates the event type from trigger and classification.
@@ -1516,6 +2477,21 @@ class Template extends utils.Adapter {
             },
             native: {},
         };
+    }
+
+    /**
+     * Returns the device index within the devices array for the given device description.
+     *
+     * @param {string} description a device description
+     * @returns {undefined|number} the device index if it exists, otherwise undefined
+     */
+    getDeviceIndexForDeviceDescription(description) {
+        for (let d = 0; d < this.devices.length; d++) {
+            if (this.devices[d].description === description) {
+                return d;
+            }
+        }
+        return undefined;
     }
 
     /**

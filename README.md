@@ -40,6 +40,11 @@ OnlyCat® is a registered trademarks of [VirtualV Trading Ltd.](https://www.only
 
 ## Changelog
 
+### 0.5.0 (2025-09-07)
+
+* (Sickboy78) transit policies added
+* (Sickboy78) connectivity and firmware channel added to device
+
 ### 0.4.0 (2025-07-13)
 
 * (Sickboy78) migrated to iobroker eslint rules
