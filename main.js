@@ -1496,22 +1496,58 @@ class Template extends utils.Adapter {
                 promiseArray.push(
                     this.setState(`${objName}.deviceId`, this.devices[deviceIndex].deviceId, true),
                     this.setState(`${objName}.description`, this.devices[deviceIndex].description, true),
-                    this.setState(`${objName}.firmwareChannel`, this.devices[deviceIndex].firmwareChannel, true),
                     this.setState(`${objName}.timeZone`, this.devices[deviceIndex].timeZone, true),
                     this.setState(`${objName}.cursorId`, this.devices[deviceIndex].cursorId, true),
-                    this.setState(`${objNameCon}.connected`, this.devices[deviceIndex].connectivity.connected, true),
-                    this.setState(
-                        `${objNameCon}.disconnectReason`,
-                        this.devices[deviceIndex].connectivity.disconnectReason,
-                        true,
-                    ),
-                    this.setState(`${objNameCon}.timestamp`, this.devices[deviceIndex].connectivity.timestamp, true),
                     this.setState(
                         `${objName}.control.deviceTransitPolicyId`,
                         this.devices[deviceIndex].deviceTransitPolicyId,
                         true,
                     ),
                 );
+                if (this.devices[deviceIndex].firmwareChannel) {
+                    promiseArray.push(
+                        this.setState(`${objName}.firmwareChannel`, this.devices[deviceIndex].firmwareChannel, true),
+                    );
+                } else {
+                    this.log.warn(`No firmware channel found for device at index '${deviceIndex}'.`);
+                }
+                if (this.devices[deviceIndex].connectivity) {
+                    if (this.devices[deviceIndex].connectivity.connected) {
+                        promiseArray.push(
+                            this.setState(
+                                `${objNameCon}.connected`,
+                                this.devices[deviceIndex].connectivity.connected,
+                                true,
+                            ),
+                        );
+                    } else {
+                        this.log.warn(`No connected state found for device at index '${deviceIndex}'.`);
+                    }
+                    if (this.devices[deviceIndex].connectivity.disconnectReason) {
+                        promiseArray.push(
+                            this.setState(
+                                `${objNameCon}.disconnectReason`,
+                                this.devices[deviceIndex].connectivity.disconnectReason,
+                                true,
+                            ),
+                        );
+                    } else {
+                        this.log.warn(`No disconnect reason found for device at index '${deviceIndex}'.`);
+                    }
+                    if (this.devices[deviceIndex].connectivity.timestamp) {
+                        promiseArray.push(
+                            this.setState(
+                                `${objNameCon}.timestamp`,
+                                this.devices[deviceIndex].connectivity.timestamp,
+                                true,
+                            ),
+                        );
+                    } else {
+                        this.log.warn(`No connectivity timestamp found for device at index '${deviceIndex}'.`);
+                    }
+                } else {
+                    this.log.warn(`No connectivity data found for device at index '${deviceIndex}'.`);
+                }
                 Promise.all(promiseArray)
                     .then(() => {
                         return resolve();
