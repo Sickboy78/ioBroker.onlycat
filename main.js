@@ -1429,6 +1429,7 @@ class Template extends utils.Adapter {
      */
     updateDevices() {
         return new Promise((resolve, reject) => {
+            this.log.debug(`Updating all devices...`);
             if (this.devices) {
                 const promiseArray = [];
                 for (let d = 0; d < this.devices.length; d++) {
@@ -1436,11 +1437,12 @@ class Template extends utils.Adapter {
                 }
                 Promise.all(promiseArray)
                     .then(() => {
+                        this.log.debug(`All devices updated.`);
                         return resolve();
                     })
                     .catch(error => {
-                        this.log.warn(`Could not update devices (${error}).`);
-                        return reject();
+                        this.log.warn(`Could not update all devices (${error}).`);
+                        return resolve();
                     });
             } else {
                 return reject(new Error(`no device data found.`));
@@ -1456,6 +1458,7 @@ class Template extends utils.Adapter {
      */
     updateDevicesForDeviceIds(deviceIds) {
         return new Promise((resolve, reject) => {
+            this.log.debug(`Updating devices...`);
             if (this.devices) {
                 const promiseArray = [];
                 for (let d = 0; d < this.devices.length; d++) {
@@ -1465,11 +1468,12 @@ class Template extends utils.Adapter {
                 }
                 Promise.all(promiseArray)
                     .then(() => {
+                        this.log.debug(`Devices updated.`);
                         return resolve();
                     })
                     .catch(error => {
                         this.log.warn(`Could not update devices (${error}).`);
-                        return reject();
+                        return resolve();
                     });
             } else {
                 return reject(new Error(`no device data found.`));
@@ -1513,8 +1517,8 @@ class Template extends utils.Adapter {
                         return resolve();
                     })
                     .catch(error => {
-                        this.log.warn(`Could not update device at index '${deviceIndex}' (${error}).`);
-                        return reject();
+                        this.log.warn(`Could not update all states for device at index '${deviceIndex}' (${error}).`);
+                        return resolve();
                     });
             } else {
                 return reject(new Error(`no device at index '${deviceIndex}' found.`));
