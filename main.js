@@ -19,7 +19,7 @@ const OnlyCatApi = require('./lib/onlycat-api');
 
 // Constants
 // Adapter version
-const ADAPTER_VERSION = '0.5.0';
+const ADAPTER_VERSION = '0.5.1';
 // Reconnect frequency
 const RETRY_FREQUENCY_CONNECT = 60;
 // Minimum Event Update frequency
@@ -1081,7 +1081,7 @@ class Template extends utils.Adapter {
                                         ),
                                         this.setObjectNotExistsAsync(
                                             `${objName}.connectivity.timestamp`,
-                                            this.buildStateObject('timestamp', 'date', 'string'),
+                                            this.buildStateObject('timestamp', 'date', 'number'),
                                         ),
                                         this.setObjectNotExistsAsync(
                                             `${objName}.control.deviceTransitPolicyId`,
@@ -1476,7 +1476,7 @@ class Template extends utils.Adapter {
                         return resolve();
                     });
             } else {
-                return reject(new Error(`no device data found.`));
+                return reject(new Error(`No device data found.`));
             }
         });
     }
@@ -1489,75 +1489,61 @@ class Template extends utils.Adapter {
      */
     updateDevice(deviceIndex) {
         return new Promise((resolve, reject) => {
-            if (this.devices[deviceIndex] && 'description' in this.devices[deviceIndex]) {
+            const device = this.devices[deviceIndex];
+            if (device && 'description' in device && 'deviceId' in device) {
                 const promiseArray = [];
-                const objName = this.devices[deviceIndex].description;
+                const deviceId = device.deviceId;
+                const objName = device.description;
                 const objNameCon = `${objName}.connectivity`;
                 promiseArray.push(
-                    this.setState(`${objName}.deviceId`, this.devices[deviceIndex].deviceId, true),
-                    this.setState(`${objName}.description`, this.devices[deviceIndex].description, true),
-                    this.setState(`${objName}.timeZone`, this.devices[deviceIndex].timeZone, true),
-                    this.setState(`${objName}.cursorId`, this.devices[deviceIndex].cursorId, true),
-                    this.setState(
-                        `${objName}.control.deviceTransitPolicyId`,
-                        this.devices[deviceIndex].deviceTransitPolicyId,
-                        true,
-                    ),
+                    this.setState(`${objName}.deviceId`, deviceId, true),
+                    this.setState(`${objName}.description`, device.description_org, true),
                 );
-                if (this.devices[deviceIndex].firmwareChannel) {
-                    promiseArray.push(
-                        this.setState(`${objName}.firmwareChannel`, this.devices[deviceIndex].firmwareChannel, true),
-                    );
-                } else {
-                    this.log.warn(`No firmware channel found for device at index '${deviceIndex}'.`);
+                if (device.timeZone) {
+                    this.setState(`${objName}.timeZone`, device.timeZone, true);
                 }
-                if (this.devices[deviceIndex].connectivity) {
-                    if (this.devices[deviceIndex].connectivity.connected) {
+                if (device.cursorId) {
+                    this.setState(`${objName}.cursorId`, device.cursorId, true);
+                }
+                if (device.deviceTransitPolicyId) {
+                    this.setState(`${objName}.control.deviceTransitPolicyId`, device.deviceTransitPolicyId, true);
+                } else {
+                    this.log.silly(`No device transit policy ID found for device '${deviceId}'.`);
+                }
+                if (device.firmwareChannel) {
+                    promiseArray.push(this.setState(`${objName}.firmwareChannel`, device.firmwareChannel, true));
+                }
+                if (device.connectivity) {
+                    if (device.connectivity.connected) {
                         promiseArray.push(
-                            this.setState(
-                                `${objNameCon}.connected`,
-                                this.devices[deviceIndex].connectivity.connected,
-                                true,
-                            ),
+                            this.setState(`${objNameCon}.connected`, device.connectivity.connected, true),
                         );
-                    } else {
-                        this.log.warn(`No connected state found for device at index '${deviceIndex}'.`);
                     }
-                    if (this.devices[deviceIndex].connectivity.disconnectReason) {
+                    if (device.connectivity.disconnectReason) {
                         promiseArray.push(
-                            this.setState(
-                                `${objNameCon}.disconnectReason`,
-                                this.devices[deviceIndex].connectivity.disconnectReason,
-                                true,
-                            ),
+                            this.setState(`${objNameCon}.disconnectReason`, device.connectivity.disconnectReason, true),
                         );
-                    } else {
-                        this.log.warn(`No disconnect reason found for device at index '${deviceIndex}'.`);
                     }
-                    if (this.devices[deviceIndex].connectivity.timestamp) {
+                    if (device.connectivity.timestamp) {
                         promiseArray.push(
-                            this.setState(
-                                `${objNameCon}.timestamp`,
-                                this.devices[deviceIndex].connectivity.timestamp,
-                                true,
-                            ),
+                            this.setState(`${objNameCon}.timestamp`, device.connectivity.timestamp, true),
                         );
-                    } else {
-                        this.log.warn(`No connectivity timestamp found for device at index '${deviceIndex}'.`);
                     }
                 } else {
-                    this.log.warn(`No connectivity data found for device at index '${deviceIndex}'.`);
+                    this.log.silly(`No connectivity data found for device '${deviceId}'.`);
                 }
                 Promise.all(promiseArray)
                     .then(() => {
                         return resolve();
                     })
                     .catch(error => {
-                        this.log.warn(`Could not update all states for device at index '${deviceIndex}' (${error}).`);
+                        this.log.warn(`Could not update all states for device '${deviceId}' (${error}).`);
                         return resolve();
                     });
             } else {
-                return reject(new Error(`no device at index '${deviceIndex}' found.`));
+                return reject(
+                    new Error(`no device at index '${deviceIndex}' found or device has no description or device ID.`),
+                );
             }
         });
     }
@@ -1623,16 +1609,39 @@ class Template extends utils.Adapter {
      * @param {number} eventIndex the event index
      */
     setEventStatesToAdapter(objName, eventIndex) {
-        this.setState(`${objName}.accessToken`, this.events[eventIndex].accessToken, true);
-        this.setState(`${objName}.deviceId`, this.events[eventIndex].deviceId, true);
-        this.setState(`${objName}.eventClassification`, this.events[eventIndex].eventClassification, true);
-        this.setState(`${objName}.eventId`, this.events[eventIndex].eventId, true);
-        this.setState(`${objName}.eventTriggerSource`, this.events[eventIndex].eventTriggerSource, true);
-        this.setState(`${objName}.frameCount`, this.events[eventIndex].frameCount, true);
-        this.setState(`${objName}.globalId`, this.events[eventIndex].globalId, true);
-        this.setState(`${objName}.posterFrameIndex`, this.events[eventIndex].posterFrameIndex, true);
-        this.setState(`${objName}.rfidCodes`, JSON.stringify(this.events[eventIndex].rfidCodes), true);
-        this.setState(`${objName}.timestamp`, this.events[eventIndex].timestamp, true);
+        const event = this.events[eventIndex];
+        if (event) {
+            if ('accessToken' in event) {
+                this.setState(`${objName}.accessToken`, event.accessToken, true);
+            }
+            if ('deviceId' in event) {
+                this.setState(`${objName}.deviceId`, event.deviceId, true);
+            }
+            if ('eventClassification' in event) {
+                this.setState(`${objName}.eventClassification`, event.eventClassification, true);
+            }
+            if ('eventId' in event) {
+                this.setState(`${objName}.eventId`, event.eventId, true);
+            }
+            if ('eventTriggerSource' in event) {
+                this.setState(`${objName}.eventTriggerSource`, event.eventTriggerSource, true);
+            }
+            if ('frameCount' in event) {
+                this.setState(`${objName}.frameCount`, event.frameCount, true);
+            }
+            if ('globalId' in event) {
+                this.setState(`${objName}.globalId`, event.globalId, true);
+            }
+            if ('posterFrameIndex' in event) {
+                this.setState(`${objName}.posterFrameIndex`, event.posterFrameIndex, true);
+            }
+            if ('rfidCodes' in event) {
+                this.setState(`${objName}.rfidCodes`, JSON.stringify(event.rfidCodes), true);
+            }
+            if ('timestamp' in event) {
+                this.setState(`${objName}.timestamp`, event.timestamp, true);
+            }
+        }
     }
 
     /**
@@ -2197,6 +2206,18 @@ class Template extends utils.Adapter {
                     const objName = this.devices[d].description;
                     deletePromiseArray.push(
                         this.deleteObjectFormAdapterIfExists(`${objName}.deviceTransitPolicyId`, false),
+                    );
+                }
+            }
+
+            if (version === 'unknown' || this.isVersionLessThan(version, '0.5.1')) {
+                this.log.debug(`searching and removing of obsolete objects for adapter versions before 0.5.1`);
+
+                // DEVICE.connectivity.timestamp is changed from string to number
+                for (let d = 0; d < this.devices.length; d++) {
+                    const objName = this.devices[d].description;
+                    deletePromiseArray.push(
+                        this.deleteObjectFormAdapterIfExists(`${objName}.connectivity.timestamp`, false),
                     );
                 }
             }
