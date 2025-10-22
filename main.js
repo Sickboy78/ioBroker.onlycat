@@ -19,7 +19,7 @@ const OnlyCatApi = require('./lib/onlycat-api');
 
 // Constants
 // Adapter version
-const ADAPTER_VERSION = '0.5.1';
+const ADAPTER_VERSION = '0.5.2';
 // Reconnect frequency
 const RETRY_FREQUENCY_CONNECT = 60;
 // Minimum Event Update frequency

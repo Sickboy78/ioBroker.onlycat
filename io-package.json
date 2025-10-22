@@ -1,21 +1,34 @@
 {
     "common": {
         "name": "onlycat",
-        "version": "0.5.1",
+        "version": "0.5.2",
         "news": {
-            "0.5.1": {
-                "en": "minor bugfix",
-                "de": "kleiner Bugfix",
-                "ru": "Слава Украины",
-                "pt": "correção de pequenos erros",
-                "nl": "kleine bugfix",
-                "fr": "correction de bug mineur",
-                "it": "correzione di bug minori",
-                "es": "corrección de errores menores",
-                "pl": "drobna poprawka błędu",
-                "uk": "незначне виправлення помилки",
-                "zh-cn": "次要错误修复"
-            },
+          "0.5.2": {
+            "en": "dependency updates",
+            "de": "Aktualisierungen von Abhängigkeiten",
+            "ru": "Слава Украины",
+            "pt": "atualizações de dependências",
+            "nl": "afhankelijkheidsupdates",
+            "fr": "Mises à jour des dépendances",
+            "it": "aggiornamenti delle dipendenze",
+            "es": "Actualizaciones de dependencias",
+            "pl": "aktualizacje zależności",
+            "uk": "оновлення залежностей",
+            "zh-cn": "依赖项更新"
+          },
+          "0.5.1": {
+            "en": "minor bugfix",
+            "de": "kleiner Bugfix",
+            "ru": "Слава Украины",
+            "pt": "correção de pequenos erros",
+            "nl": "kleine bugfix",
+            "fr": "correction de bug mineur",
+            "it": "correzione di bug minori",
+            "es": "corrección de errores menores",
+            "pl": "drobna poprawka błędu",
+            "uk": "незначне виправлення помилки",
+            "zh-cn": "次要错误修复"
+          },
             "0.5.0": {
                 "en": "transit policies added",
                 "de": "Türrichtlinien hinzugefügt",
