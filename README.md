@@ -41,6 +41,16 @@ OnlyCat® is a registered trademarks of [VirtualV Trading Ltd.](https://www.only
 
 ## Changelog
 
+<!--
+  Placeholder for the next version (at the beginning of the line):
+  ### **WORK IN PROGRESS**
+-->
+
+### **WORK IN PROGRESS**
+
+* (Sickboy78) dependency updates
+* (Sickboy78) add AlCalzone's Release Script
+
 ### 0.5.2 (2025-10-22)
 
 * (Sickboy78) dependency updates
