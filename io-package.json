@@ -1,272 +1,272 @@
 {
-    "common": {
-        "name": "onlycat",
-        "version": "0.5.2",
-        "news": {
-            "0.5.2": {
-                "en": "dependency updates",
-                "de": "Aktualisierungen von Abhängigkeiten",
-                "ru": "Слава Украины",
-                "pt": "atualizações de dependências",
-                "nl": "afhankelijkheidsupdates",
-                "fr": "Mises à jour des dépendances",
-                "it": "aggiornamenti delle dipendenze",
-                "es": "Actualizaciones de dependencias",
-                "pl": "aktualizacje zależności",
-                "uk": "оновлення залежностей",
-                "zh-cn": "依赖项更新"
-            },
-            "0.5.1": {
-                "en": "minor bugfix",
-                "de": "kleiner Bugfix",
-                "ru": "Слава Украины",
-                "pt": "correção de pequenos erros",
-                "nl": "kleine bugfix",
-                "fr": "correction de bug mineur",
-                "it": "correzione di bug minori",
-                "es": "corrección de errores menores",
-                "pl": "drobna poprawka błędu",
-                "uk": "незначне виправлення помилки",
-                "zh-cn": "次要错误修复"
-            },
-            "0.5.0": {
-                "en": "transit policies added",
-                "de": "Türrichtlinien hinzugefügt",
-                "ru": "Слава Украины",
-                "pt": "políticas de trânsito adicionadas",
-                "nl": "transitbeleid toegevoegd",
-                "fr": "politiques de transit ajoutées",
-                "it": "politiche di transito aggiunte",
-                "es": "políticas de tránsito añadidas",
-                "pl": "dodano politykę tranzytową",
-                "uk": "додано політику транзиту",
-                "zh-cn": "新增过境政策"
-            },
-            "0.4.0": {
-                "en": "migrated to iobroker eslint rules",
-                "de": "zu ioBroker Eslint Regeln migriert",
-                "ru": "Слава Украины",
-                "pt": "migrou para as regras do iobroker eslint",
-                "nl": "gemigreerd naar iobroker eslint regels",
-                "fr": "migré vers iobroker eslint rules",
-                "it": "migrato alle regole di iobroker eslint",
-                "es": "migrado a las reglas eslint de iobroker",
-                "pl": "migracja do reguł iobroker eslint",
-                "uk": "Перейшли на правила iobroker eslint",
-                "zh-cn": "迁移到 iobroker eslint 规则"
-            },
-            "0.3.0": {
-                "en": "code improvements from review",
-                "de": "Codeverbesserungen vom Review",
-                "ru": "Слава Украины",
-                "pt": "melhorias do código de revisão",
-                "nl": "code verbeteringen na herziening",
-                "fr": "améliorations du code suite à la révision",
-                "it": "miglioramenti al codice dalla revisione",
-                "es": "mejoras en el código a partir de la revisión",
-                "pl": "poprawki kodu z przeglądu",
-                "uk": "покращення коду після перегляду",
-                "zh-cn": "审查后的代码改进"
-            },
-            "0.2.0": {
-                "en": "use pet names from RFID profiles",
-                "de": "Verwendung der Tiernamen aus den RFID Profilen",
-                "ru": "Слава Украины",
-                "pt": "utilizar nomes de animais de estimação de perfis RFID",
-                "nl": "huisdiernamen van RFID-profielen gebruiken",
-                "fr": "utiliser les noms d'animaux des profils RFID",
-                "it": "utilizzare i nomi di animali domestici dai profili RFID",
-                "es": "utilizar nombres de mascotas de perfiles RFID",
-                "pl": "używać imion zwierząt z profili RFID",
-                "uk": "використовуйте імена домашніх тварин з RFID-профілів",
-                "zh-cn": "使用 RFID 配置文件中的宠物名"
-            },
-            "0.1.0": {
-                "en": "event classification and trigger source schema updated",
-                "de": "Schema der Ereignisklassifizierung und Auslöserquelle aktualisiert",
-                "ru": "Слава Украины",
-                "pt": "esquema de classificação de eventos e de fonte de acionamento atualizado",
-                "nl": "Gebeurtenisclassificatie en triggerbronschema bijgewerkt",
-                "fr": "mise à jour de la classification des événements et du schéma des sources de déclenchement",
-                "it": "classificazione degli eventi e schema delle fonti di attivazione aggiornati",
-                "es": "clasificación de eventos y actualización del esquema de fuentes de activación",
-                "pl": "zaktualizowano klasyfikację zdarzeń i schemat źródła wyzwalacza",
-                "uk": "оновлено класифікацію подій та схему джерел тригерів",
-                "zh-cn": "更新了事件分类和触发源模式"
-            }
-        },
-        "titleLang": {
-            "en": "OnlyCat",
-            "de": "OnlyCat",
-            "ru": "OnlyCat",
-            "pt": "OnlyCat",
-            "nl": "OnlyCat",
-            "fr": "OnlyCat",
-            "it": "OnlyCat",
-            "es": "OnlyCat",
-            "pl": "OnlyCat",
-            "uk": "OnlyCat",
-            "zh-cn": "OnlyCat"
-        },
-        "desc": {
-            "en": "Adapter for OnlyCat cat flaps with prey detection",
-            "de": "Adapter für OnlyCat Katzenklappen mit Beuteerkennung",
-            "ru": "русский военный корабль иди нахуй",
-            "pt": "Adaptador para a pala de gato OnlyCat com deteção de presas",
-            "nl": "Adapter voor OnlyCat kattenluik met prooidetectie",
-            "fr": "Adaptateur pour chatière OnlyCat avec détection des proies",
-            "it": "Adattatore per gattaiola OnlyCat con rilevamento delle prede",
-            "es": "Adaptador para gatera OnlyCat con detección de presas",
-            "pl": "Adapter do klapy dla kota OnlyCat z funkcją wykrywania zdobyczy",
-            "uk": "Адаптер для котячої заслінки OnlyCat з функцією виявлення здобичі",
-            "zh-cn": "用于带有猎物探测功能的 OnlyCat 猫厕所的适配器"
-        },
-        "authors": [
-            "Sickboy78 <asmoday_666@gmx.de>"
-        ],
-        "keywords": [
-            "onlycat",
-            "cat",
-            "flap",
-            "prey",
-            "detection",
-            "artificial intelligence"
-        ],
-        "licenseInformation": {
-            "type": "free",
-            "license": "MIT"
-        },
-        "platform": "Javascript/Node.js",
-        "icon": "onlycat.png",
-        "enabled": true,
-        "extIcon": "https://raw.githubusercontent.com/Sickboy78/ioBroker.onlycat/main/admin/onlycat.png",
-        "readme": "https://github.com/Sickboy78/ioBroker.onlycat/blob/main/README.md",
-        "loglevel": "info",
-        "tier": 2,
-        "mode": "daemon",
-        "type": "iot-systems",
-        "compact": true,
-        "connectionType": "cloud",
-        "dataSource": "push",
-        "adminUI": {
-            "config": "json"
-        },
-        "supportCustoms": false,
-        "dependencies": [
-            {
-                "js-controller": ">=6.0.11"
-            }
-        ],
-        "globalDependencies": [
-            {
-                "admin": ">=7.6.17"
-            }
-        ]
+  "common": {
+    "name": "onlycat",
+    "version": "0.5.3",
+    "news": {
+      "0.5.3": {
+        "en": "dependency updates\nadd AlCalzone's Release Script",
+        "de": "abhängigkeitsaktualisierung\nalCalzone's Release Script hinzufügen",
+        "ru": "обновления зависимостей\nобсуждение AlCalzone's Release Script",
+        "pt": "atualizações de dependência\nadicionar o Programa de Lançamento do AlCalzone",
+        "nl": "afhankelijkheidsupdates\nalCalzone Release Script toevoegen",
+        "fr": "mises à jour des dépendances\najouter le script de sortie d'AlCalzone",
+        "it": "aggiornamenti di dipendenza\naggiungere lo script di rilascio di AlCalzone",
+        "es": "actualizaciones de la dependencia\nañadir el script de liberación de AlCalzone",
+        "pl": "aktualizacje zależności\ndodaj skrypt wydania AlCalzone",
+        "uk": "оновлення залежності\nдодати скрипт виходу AlCalzone",
+        "zh-cn": "依赖性更新\n添加 AlCalzone 的释放脚本"
+      },
+      "0.5.2": {
+        "en": "dependency updates",
+        "de": "Aktualisierungen von Abhängigkeiten",
+        "ru": "Слава Украины",
+        "pt": "atualizações de dependências",
+        "nl": "afhankelijkheidsupdates",
+        "fr": "Mises à jour des dépendances",
+        "it": "aggiornamenti delle dipendenze",
+        "es": "Actualizaciones de dependencias",
+        "pl": "aktualizacje zależności",
+        "uk": "оновлення залежностей",
+        "zh-cn": "依赖项更新"
+      },
+      "0.5.1": {
+        "en": "minor bugfix",
+        "de": "kleiner Bugfix",
+        "ru": "Слава Украины",
+        "pt": "correção de pequenos erros",
+        "nl": "kleine bugfix",
+        "fr": "correction de bug mineur",
+        "it": "correzione di bug minori",
+        "es": "corrección de errores menores",
+        "pl": "drobna poprawka błędu",
+        "uk": "незначне виправлення помилки",
+        "zh-cn": "次要错误修复"
+      },
+      "0.5.0": {
+        "en": "transit policies added",
+        "de": "Türrichtlinien hinzugefügt",
+        "ru": "Слава Украины",
+        "pt": "políticas de trânsito adicionadas",
+        "nl": "transitbeleid toegevoegd",
+        "fr": "politiques de transit ajoutées",
+        "it": "politiche di transito aggiunte",
+        "es": "políticas de tránsito añadidas",
+        "pl": "dodano politykę tranzytową",
+        "uk": "додано політику транзиту",
+        "zh-cn": "新增过境政策"
+      },
+      "0.4.0": {
+        "en": "migrated to iobroker eslint rules",
+        "de": "zu ioBroker Eslint Regeln migriert",
+        "ru": "Слава Украины",
+        "pt": "migrou para as regras do iobroker eslint",
+        "nl": "gemigreerd naar iobroker eslint regels",
+        "fr": "migré vers iobroker eslint rules",
+        "it": "migrato alle regole di iobroker eslint",
+        "es": "migrado a las reglas eslint de iobroker",
+        "pl": "migracja do reguł iobroker eslint",
+        "uk": "Перейшли на правила iobroker eslint",
+        "zh-cn": "迁移到 iobroker eslint 规则"
+      },
+      "0.3.0": {
+        "en": "code improvements from review",
+        "de": "Codeverbesserungen vom Review",
+        "ru": "Слава Украины",
+        "pt": "melhorias do código de revisão",
+        "nl": "code verbeteringen na herziening",
+        "fr": "améliorations du code suite à la révision",
+        "it": "miglioramenti al codice dalla revisione",
+        "es": "mejoras en el código a partir de la revisión",
+        "pl": "poprawki kodu z przeglądu",
+        "uk": "покращення коду після перегляду",
+        "zh-cn": "审查后的代码改进"
+      },
+      "0.2.0": {
+        "en": "use pet names from RFID profiles",
+        "de": "Verwendung der Tiernamen aus den RFID Profilen",
+        "ru": "Слава Украины",
+        "pt": "utilizar nomes de animais de estimação de perfis RFID",
+        "nl": "huisdiernamen van RFID-profielen gebruiken",
+        "fr": "utiliser les noms d'animaux des profils RFID",
+        "it": "utilizzare i nomi di animali domestici dai profili RFID",
+        "es": "utilizar nombres de mascotas de perfiles RFID",
+        "pl": "używać imion zwierząt z profili RFID",
+        "uk": "використовуйте імена домашніх тварин з RFID-профілів",
+        "zh-cn": "使用 RFID 配置文件中的宠物名"
+      }
     },
-    "native": {
-        "token": ""
+    "titleLang": {
+      "en": "OnlyCat",
+      "de": "OnlyCat",
+      "ru": "OnlyCat",
+      "pt": "OnlyCat",
+      "nl": "OnlyCat",
+      "fr": "OnlyCat",
+      "it": "OnlyCat",
+      "es": "OnlyCat",
+      "pl": "OnlyCat",
+      "uk": "OnlyCat",
+      "zh-cn": "OnlyCat"
     },
-    "encryptedNative": [
-        "token"
+    "desc": {
+      "en": "Adapter for OnlyCat cat flaps with prey detection",
+      "de": "Adapter für OnlyCat Katzenklappen mit Beuteerkennung",
+      "ru": "русский военный корабль иди нахуй",
+      "pt": "Adaptador para a pala de gato OnlyCat com deteção de presas",
+      "nl": "Adapter voor OnlyCat kattenluik met prooidetectie",
+      "fr": "Adaptateur pour chatière OnlyCat avec détection des proies",
+      "it": "Adattatore per gattaiola OnlyCat con rilevamento delle prede",
+      "es": "Adaptador para gatera OnlyCat con detección de presas",
+      "pl": "Adapter do klapy dla kota OnlyCat z funkcją wykrywania zdobyczy",
+      "uk": "Адаптер для котячої заслінки OnlyCat з функцією виявлення здобичі",
+      "zh-cn": "用于带有猎物探测功能的 OnlyCat 猫厕所的适配器"
+    },
+    "authors": [
+      "Sickboy78 <asmoday_666@gmx.de>"
     ],
-    "protectedNative": [
-        "token"
+    "keywords": [
+      "onlycat",
+      "cat",
+      "flap",
+      "prey",
+      "detection",
+      "artificial intelligence"
     ],
-    "objects": [],
-    "instanceObjects": [
-        {
-            "_id": "control",
-            "type": "channel",
-            "common": {
-                "name": "debug controls"
-            },
-            "native": {}
-        },
-        {
-            "_id": "control.disconnect",
-            "type": "state",
-            "common": {
-                "role": "button",
-                "name": "disconnect from OnlyCat API",
-                "type": "boolean",
-                "read": false,
-                "write": true,
-                "def": false
-            },
-            "native": {}
-        },
-        {
-            "_id": "control.reconnect",
-            "type": "state",
-            "common": {
-                "role": "button",
-                "name": "reconnect to OnlyCat API",
-                "type": "boolean",
-                "read": false,
-                "write": true,
-                "def": false
-            },
-            "native": {}
-        },
-        {
-            "_id": "control.getEvents",
-            "type": "state",
-            "common": {
-                "role": "button",
-                "name": "get events from OnlyCat API",
-                "type": "boolean",
-                "read": false,
-                "write": true,
-                "def": false
-            },
-            "native": {}
-        },
-        {
-            "_id": "info",
-            "type": "channel",
-            "common": {
-                "name": "information"
-            },
-            "native": {}
-        },
-        {
-            "_id": "info.connection",
-            "type": "state",
-            "common": {
-                "role": "indicator.connected",
-                "name": "is connected to OnlyCat API",
-                "type": "boolean",
-                "read": true,
-                "write": false,
-                "def": false
-            },
-            "native": {}
-        },
-        {
-            "_id": "info.lastUpdate",
-            "type": "state",
-            "common": {
-                "role": "date",
-                "name": "last time data received from OnlyCat API",
-                "type": "string",
-                "read": true,
-                "write": false,
-                "def": ""
-            },
-            "native": {}
-        },
-        {
-            "_id": "info.version",
-            "type": "state",
-            "common": {
-                "role": "info.version",
-                "name": "adapter version",
-                "type": "string",
-                "read": true,
-                "write": false,
-                "def": ""
-            },
-            "native": {}
-        }
+    "licenseInformation": {
+      "type": "free",
+      "license": "MIT"
+    },
+    "platform": "Javascript/Node.js",
+    "icon": "onlycat.png",
+    "enabled": true,
+    "extIcon": "https://raw.githubusercontent.com/Sickboy78/ioBroker.onlycat/main/admin/onlycat.png",
+    "readme": "https://github.com/Sickboy78/ioBroker.onlycat/blob/main/README.md",
+    "loglevel": "info",
+    "tier": 2,
+    "mode": "daemon",
+    "type": "iot-systems",
+    "compact": true,
+    "connectionType": "cloud",
+    "dataSource": "push",
+    "adminUI": {
+      "config": "json"
+    },
+    "supportCustoms": false,
+    "dependencies": [
+      {
+        "js-controller": ">=6.0.11"
+      }
+    ],
+    "globalDependencies": [
+      {
+        "admin": ">=7.6.17"
+      }
     ]
+  },
+  "native": {
+    "token": ""
+  },
+  "encryptedNative": [
+    "token"
+  ],
+  "protectedNative": [
+    "token"
+  ],
+  "objects": [],
+  "instanceObjects": [
+    {
+      "_id": "control",
+      "type": "channel",
+      "common": {
+        "name": "debug controls"
+      },
+      "native": {}
+    },
+    {
+      "_id": "control.disconnect",
+      "type": "state",
+      "common": {
+        "role": "button",
+        "name": "disconnect from OnlyCat API",
+        "type": "boolean",
+        "read": false,
+        "write": true,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "control.reconnect",
+      "type": "state",
+      "common": {
+        "role": "button",
+        "name": "reconnect to OnlyCat API",
+        "type": "boolean",
+        "read": false,
+        "write": true,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "control.getEvents",
+      "type": "state",
+      "common": {
+        "role": "button",
+        "name": "get events from OnlyCat API",
+        "type": "boolean",
+        "read": false,
+        "write": true,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "info",
+      "type": "channel",
+      "common": {
+        "name": "information"
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.connection",
+      "type": "state",
+      "common": {
+        "role": "indicator.connected",
+        "name": "is connected to OnlyCat API",
+        "type": "boolean",
+        "read": true,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.lastUpdate",
+      "type": "state",
+      "common": {
+        "role": "date",
+        "name": "last time data received from OnlyCat API",
+        "type": "string",
+        "read": true,
+        "write": false,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.version",
+      "type": "state",
+      "common": {
+        "role": "info.version",
+        "name": "adapter version",
+        "type": "string",
+        "read": true,
+        "write": false,
+        "def": ""
+      },
+      "native": {}
+    }
+  ]
 }
