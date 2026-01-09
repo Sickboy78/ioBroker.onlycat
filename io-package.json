@@ -4,17 +4,17 @@
     "version": "0.5.3",
     "news": {
       "0.5.3": {
-        "en": "dependency updates\nadd AlCalzone's Release Script",
-        "de": "abhängigkeitsaktualisierung\nalCalzone's Release Script hinzufügen",
-        "ru": "обновления зависимостей\nобсуждение AlCalzone's Release Script",
-        "pt": "atualizações de dependência\nadicionar o Programa de Lançamento do AlCalzone",
-        "nl": "afhankelijkheidsupdates\nalCalzone Release Script toevoegen",
-        "fr": "mises à jour des dépendances\najouter le script de sortie d'AlCalzone",
-        "it": "aggiornamenti di dipendenza\naggiungere lo script di rilascio di AlCalzone",
-        "es": "actualizaciones de la dependencia\nañadir el script de liberación de AlCalzone",
-        "pl": "aktualizacje zależności\ndodaj skrypt wydania AlCalzone",
-        "uk": "оновлення залежності\nдодати скрипт виходу AlCalzone",
-        "zh-cn": "依赖性更新\n添加 AlCalzone 的释放脚本"
+        "en": "dependency updates",
+        "de": "Aktualisierungen von Abhängigkeiten",
+        "ru": "Слава Украины",
+        "pt": "atualizações de dependência",
+        "nl": "afhankelijkheidsupdates",
+        "fr": "mises à jour des dépendances",
+        "it": "aggiornamenti di dipendenza",
+        "es": "actualizaciones de la dependencia",
+        "pl": "aktualizacje zależności",
+        "uk": "оновлення залежності",
+        "zh-cn": "依赖性更新"
       },
       "0.5.2": {
         "en": "dependency updates",
