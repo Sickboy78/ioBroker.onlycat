@@ -979,6 +979,7 @@ class Template extends utils.Adapter {
             this.log.debug(`Creating object hierarchy...`);
             this.getAdapterVersionFromAdapter()
                 .then(version => this.removeDeprecatedDataFromAdapter(version))
+                .then(() => this.removeDeletedOrRenamedDataFromAdapter())
                 .then(() => this.createDeviceHierarchyToAdapter())
                 .then(() => this.createEventHierarchyToAdapter())
                 .then(() => this.createPetHierarchyToAdapter())
@@ -1319,7 +1320,6 @@ class Template extends utils.Adapter {
             const promiseArray = [];
             for (let d = 0; d < this.devices.length; d++) {
                 promiseArray.push(this.createTransitPolicyHierarchyForDeviceToAdapter(d));
-                promiseArray.push(this.removeDeletedTransitPoliciesForDeviceFromAdapter(d));
             }
             Promise.all(promiseArray)
                 .then(() => {
@@ -1342,14 +1342,18 @@ class Template extends utils.Adapter {
         return new Promise((resolve, reject) => {
             const promiseArray = [];
             const deviceName = this.devices[deviceIndex].description;
+            const deviceId = this.devices[deviceIndex].deviceId;
             this.setObjectNotExists(
                 `${deviceName}.transitPolicies`,
                 this.buildChannelObject('transit policies of the device'),
                 () => {
                     for (let i = 0; i < this.transitPolicyIds.length; i++) {
-                        promiseArray.push(
-                            this.createTransitPolicyForDeviceToAdapter(deviceIndex, this.transitPolicyIds[i]),
-                        );
+                        const policyId = this.transitPolicyIds[i];
+                        if (this.transitPolicies[policyId].deviceId === deviceId) {
+                            promiseArray.push(
+                                this.createTransitPolicyForDeviceToAdapter(deviceIndex, this.transitPolicyIds[i]),
+                            );
+                        }
                     }
                     Promise.all(promiseArray)
                         .then(() => {
@@ -1376,10 +1380,11 @@ class Template extends utils.Adapter {
             const promiseArray = [];
             const deviceName = this.devices[deviceIndex].description;
             const policyName = this.transitPolicies[policyId].name;
+            const policyNameOrg = this.transitPolicies[policyId].name_org;
             const objName = `${deviceName}.transitPolicies.${policyName}`;
             this.setObjectNotExists(
                 objName,
-                this.buildFolderObject(`transit policy '${policyName}' (${policyId})`),
+                this.buildFolderObject(`transit policy '${policyNameOrg}' (${policyId})`),
                 () => {
                     promiseArray.push(
                         this.setObjectNotExistsAsync(
@@ -2111,6 +2116,64 @@ class Template extends utils.Adapter {
      **********************************************/
 
     /**
+     * Removes deleted or renamed devices.
+     *
+     * @returns {Promise<void>}
+     */
+    removeDeletedDevicesFromAdapter() {
+        return new Promise((resolve, reject) => {
+            if (Array.isArray(this.devices)) {
+                this.log.debug(`Removing deleted or renamed devices ...`);
+                const promiseArray = [];
+                const existingDevices = [];
+                for (let d = 0; d < this.devices.length; d++) {
+                    const deviceName = this.devices[d].description_org;
+                    const deviceId = this.devices[d].deviceId;
+                    existingDevices.push(`device '${deviceName}' (${deviceId})`);
+                }
+                promiseArray.push(this.getObjectsByPatternAndType(`${this.name}.${this.instance}.*`, 'device', false));
+                Promise.all(promiseArray)
+                    .then(objs => {
+                        const deletePromiseArray = [];
+                        objs.forEach(obj => {
+                            if (obj) {
+                                Object.keys(obj).forEach(key => {
+                                    if (!existingDevices.includes(obj[key].common.name)) {
+                                        this.log.debug(
+                                            `Deleted or renamed device '${obj[key]._id}' (${obj[key].common.name}) found. Trying to delete (${obj[key].type})`,
+                                        );
+                                        deletePromiseArray.push(
+                                            this.deleteObjectFormAdapterIfExists(obj[key]._id, true),
+                                        );
+                                    }
+                                });
+                            }
+                        });
+                        if (deletePromiseArray.length === 0) {
+                            this.log.debug(`No deleted or renamed devices found.`);
+                            return resolve();
+                        }
+                        Promise.all(deletePromiseArray)
+                            .then(() => {
+                                this.log.debug(`Deleted or renamed devices removed.`);
+                                return resolve();
+                            })
+                            .catch(error => {
+                                this.log.warn(`Could not remove deleted or renamed devices (${error}).`);
+                                return reject();
+                            });
+                    })
+                    .catch(error => {
+                        this.log.warn(`Could not remove deleted or renamed devices (${error}).`);
+                        return reject();
+                    });
+            } else {
+                return reject(new Error(`no device data found.`));
+            }
+        });
+    }
+
+    /**
      * Removes deleted or renamed transit policies.
      *
      * @param {number} deviceIndex a device index
@@ -2130,7 +2193,7 @@ class Template extends utils.Adapter {
                         const policyId = this.transitPolicyIds[i];
                         if (this.transitPolicies[policyId].deviceId === deviceId) {
                             existingTransitPolicies.push(
-                                `transit policy '${this.transitPolicies[policyId].name}' (${policyId})`,
+                                `transit policy '${this.transitPolicies[policyId].name_org}' (${policyId})`,
                             );
                         }
                     }
@@ -2149,7 +2212,7 @@ class Template extends utils.Adapter {
                                     Object.keys(obj).forEach(key => {
                                         if (!existingTransitPolicies.includes(obj[key].common.name)) {
                                             this.log.debug(
-                                                `deleted or renamed transit policy ${obj[key]._id} (${obj[key].common.name}) found. trying to delete (${obj[key].type})`,
+                                                `Deleted or renamed transit policy '${obj[key]._id}' (${obj[key].common.name}) found. Trying to delete (${obj[key].type})`,
                                             );
                                             deletePromiseArray.push(
                                                 this.deleteObjectFormAdapterIfExists(obj[key]._id, true),
@@ -2158,18 +2221,30 @@ class Template extends utils.Adapter {
                                     });
                                 }
                             });
+                            if (deletePromiseArray.length === 0) {
+                                this.log.debug(
+                                    `No deleted or renamed transit policies for device '${deviceId}' found.`,
+                                );
+                                return resolve();
+                            }
                             Promise.all(deletePromiseArray)
                                 .then(() => {
-                                    this.log.debug(`Deleted or renamed transit policies removed.`);
+                                    this.log.debug(
+                                        `Deleted or renamed transit policies for device '${deviceId}' removed.`,
+                                    );
                                     return resolve();
                                 })
                                 .catch(error => {
-                                    this.log.warn(`Could not remove deleted or renamed transit policies (${error}).`);
+                                    this.log.warn(
+                                        `Could not remove deleted or renamed transit policies for device '${deviceId}' (${error}).`,
+                                    );
                                     return reject();
                                 });
                         })
                         .catch(error => {
-                            this.log.warn(`Could not remove deleted or renamed transit policies (${error}).`);
+                            this.log.warn(
+                                `Could not remove deleted or renamed transit policies for device '${deviceId}' (${error}).`,
+                            );
                             return reject();
                         });
                 } else {
@@ -2230,6 +2305,39 @@ class Template extends utils.Adapter {
                 .catch(() => {
                     this.log.warn(
                         `searching and removing of obsolete objects failed. some obsolete objects may not have been removed.`,
+                    );
+                    return resolve();
+                });
+        });
+    }
+
+    /**
+     * removes deleted or renamed data structures from the adapter
+     *
+     * @returns {Promise<void>} a promise
+     */
+    removeDeletedOrRenamedDataFromAdapter() {
+        return new Promise(resolve => {
+            const deletePromiseArray = [];
+
+            this.log.debug(`searching and removing of deleted or renamed objects`);
+
+            // deleted or renamed devices
+            deletePromiseArray.push(this.removeDeletedDevicesFromAdapter());
+
+            // deleted or renamed transit policies
+            for (let d = 0; d < this.devices.length; d++) {
+                deletePromiseArray.push(this.removeDeletedTransitPoliciesForDeviceFromAdapter(d));
+            }
+
+            Promise.all(deletePromiseArray)
+                .then(() => {
+                    this.log.debug(`searching and removing of deleted or renamed objects complete`);
+                    return resolve();
+                })
+                .catch(() => {
+                    this.log.warn(
+                        `searching and removing of deleted or renamed objects failed. some deleted or renamed objects may not have been removed.`,
                     );
                     return resolve();
                 });

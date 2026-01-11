@@ -45,6 +45,10 @@ OnlyCat® is a registered trademarks of [VirtualV Trading Ltd.](https://www.only
   Placeholder for the next version (at the beginning of the line):
   ### **WORK IN PROGRESS**
 -->
+### **WORK IN PROGRESS**
+
+* (Sickboy78) added removal of deleted or renamed devices and transit policies
+
 ### 0.5.3 (2026-01-09)
 
 * (Sickboy78) dependency updates
