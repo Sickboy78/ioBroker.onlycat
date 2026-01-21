@@ -1931,14 +1931,14 @@ class Template extends utils.Adapter {
         const latestEvents = {};
         this.log.debug(`Calculating status and latest events...`);
         for (let d = 0; d < this.devices.length; d++) {
+            if (!(d in latestEvents)) {
+                latestEvents[d] = {};
+                latestEvents[d].rfidCodes = [];
+            }
             for (let e = 0; e < this.events.length; e++) {
                 // ignore entry events who have not yet classified as clear or contraband
                 if (!this.isEntryEventWithUnknownClassification(this.events[e])) {
                     if (this.events[e].deviceId === this.devices[d].deviceId) {
-                        if (!(d in latestEvents)) {
-                            latestEvents[d] = {};
-                            latestEvents[d].rfidCodes = [];
-                        }
                         for (let r = 0; r < this.events[e].rfidCodes.length; r++) {
                             const rfidCode = this.events[e].rfidCodes[r];
                             if (!latestEvents[d].rfidCodes.includes(rfidCode)) {
