@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "onlycat",
-    "version": "0.5.3",
+    "version": "0.5.4",
     "news": {
+      "0.5.4": {
+        "en": "added removal of deleted or renamed devices and transit policies",
+        "de": "Bereinigung von gelöschten oder umbenannten Geräten und Türrichtlinien hinzugefügt",
+        "ru": "Слава Украины",
+        "pt": "remoção adicionada de dispositivos apagados ou renomeados e políticas de trânsito",
+        "nl": "toegevoegd verwijdering van verwijderde of hernoemde hulpmiddelen en doorvoerbeleid",
+        "fr": "suppression supplémentaire des dispositifs supprimés ou renommés et politiques de transit",
+        "it": "rimozione aggiuntiva di dispositivi cancellati o rinominati e politiche di transito",
+        "es": "eliminación de dispositivos eliminados o renombrados y políticas de tránsito",
+        "pl": "dodane usunięcie usuniętych lub zmienionych nazw urządzeń i zasad tranzytu",
+        "uk": "додано видалення видалених або перейменованих пристроїв та транзитних політик",
+        "zh-cn": "添加删除或重新命名的装置和过境政策"
+      },
       "0.5.3": {
         "en": "dependency updates",
         "de": "Aktualisierungen von Abhängigkeiten",
@@ -80,19 +93,6 @@
         "pl": "poprawki kodu z przeglądu",
         "uk": "покращення коду після перегляду",
         "zh-cn": "审查后的代码改进"
-      },
-      "0.2.0": {
-        "en": "use pet names from RFID profiles",
-        "de": "Verwendung der Tiernamen aus den RFID Profilen",
-        "ru": "Слава Украины",
-        "pt": "utilizar nomes de animais de estimação de perfis RFID",
-        "nl": "huisdiernamen van RFID-profielen gebruiken",
-        "fr": "utiliser les noms d'animaux des profils RFID",
-        "it": "utilizzare i nomi di animali domestici dai profili RFID",
-        "es": "utilizar nombres de mascotas de perfiles RFID",
-        "pl": "używać imion zwierząt z profili RFID",
-        "uk": "використовуйте імена домашніх тварин з RFID-профілів",
-        "zh-cn": "使用 RFID 配置文件中的宠物名"
       }
     },
     "titleLang": {
