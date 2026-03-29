@@ -470,16 +470,33 @@ class Template extends utils.Adapter {
                 this.api
                     .request('getDevices', { subscribe: true })
                     .then(response => {
-                        this.devices = response;
-                        for (let d = 0; d < this.devices.length; d++) {
-                            if ('description' in this.devices[d]) {
-                                this.devices[d].description_org = this.devices[d].description;
-                                this.devices[d].description = this.normalizeString(this.devices[d].description);
-                                if (this.devices[d].description_org !== this.devices[d].description) {
-                                    this.log.debug(
-                                        `Normalizing device name from: '${this.devices[d].description_org}' to '${this.devices[d].description}'`,
-                                    );
-                                }
+                        this.devices = response.filter(device => {
+                            if (!device.deviceId) {
+                                this.log.error(
+                                    `Received device without deviceId, ignoring device: ${JSON.stringify(device)}`,
+                                );
+                                return false;
+                            }
+                            return true;
+                        });
+                        for (const device of this.devices) {
+                            if (
+                                !('description' in device) ||
+                                device.description === null ||
+                                device.description === '' ||
+                                this.normalizeString(device.description) === ''
+                            ) {
+                                this.log.error(
+                                    `Device with ID '${device.deviceId}' does not have a valid description (device name). Falling back to device ID.`,
+                                );
+                                device.description = device.deviceId;
+                            }
+                            device.description_org = device.description;
+                            device.description = this.normalizeString(device.description);
+                            if (device.description_org !== device.description) {
+                                this.log.debug(
+                                    `Normalizing device name from: '${device.description_org}' to '${device.description}'`,
+                                );
                             }
                         }
                         this.log.debug(
