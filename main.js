@@ -1249,7 +1249,13 @@ class Template extends utils.Adapter {
                     ),
                     this.setObjectNotExistsAsync(
                         `${objName}.eventManualClassification`,
-                        this.buildStateObject('Event manual classification', 'text', 'number', true, EVENT_CLASSIFICATION),
+                        this.buildStateObject(
+                            'Event manual classification',
+                            'text',
+                            'number',
+                            true,
+                            EVENT_CLASSIFICATION,
+                        ),
                     ),
                     this.setObjectNotExistsAsync(
                         `${objName}.eventManualClassificationUserId`,
@@ -1544,7 +1550,9 @@ class Template extends utils.Adapter {
                     promiseArray.push(this.setState(`${objName}.cursorId`, device.cursorId, true));
                 }
                 if (device.deviceTransitPolicyId) {
-                    promiseArray.push(this.setState(`${objName}.control.deviceTransitPolicyId`, device.deviceTransitPolicyId, true));
+                    promiseArray.push(
+                        this.setState(`${objName}.control.deviceTransitPolicyId`, device.deviceTransitPolicyId, true),
+                    );
                 } else {
                     this.log.silly(`No device transit policy ID found for device '${deviceId}'.`);
                 }
@@ -1668,7 +1676,11 @@ class Template extends utils.Adapter {
                 this.setState(`${objName}.eventManualClassification`, event.eventManualClassification, true);
             }
             if ('eventManualClassificationUserId' in event) {
-                this.setState(`${objName}.eventManualClassificationUserId`, event.eventManualClassificationUserId, true);
+                this.setState(
+                    `${objName}.eventManualClassificationUserId`,
+                    event.eventManualClassificationUserId,
+                    true,
+                );
             }
             if ('eventTriggerSource' in event) {
                 this.setState(`${objName}.eventTriggerSource`, event.eventTriggerSource, true);
@@ -1689,7 +1701,11 @@ class Template extends utils.Adapter {
                 this.setState(`${objName}.timestamp`, event.timestamp, true);
             }
             if ('deviceId' in event && 'eventId' in event && 'accessToken' in event) {
-                this.setState(`${objName}.link`, 'https://onlycat.app/events/' + event.deviceId + '/' + event.eventId + '?t=' + event.accessToken, true);
+                this.setState(
+                    `${objName}.link`,
+                    'https://onlycat.app/events/${event.deviceId}/${event.eventId}?t=${event.accessToken}',
+                    true,
+                );
             }
         }
     }
@@ -1710,55 +1726,61 @@ class Template extends utils.Adapter {
                 this.buildFolderObject(
                     `status and latest events for ${petName ? `'${petName}'` : `pet with rfid '${rfidCode}'`}`,
                 ),
-            ).then(() => {
-                const promises = [];
+            )
+                .then(() => {
+                    const promises = [];
 
-                promises.push(
-                    this.setObjectNotExistsAsync(
-                        `${objName}.status`,
-                        this.buildStateObject(
-                            `status for ${petName ? `'${petName}'` : `pet with rfid '${rfidCode}'`}`,
-                            'indicator',
-                            'string',
-                        ),
-                    ).then(() => {
-                        if ('inside' in latestEvents && latestEvents.inside !== undefined) {
-                            return this.setState(`${objName}.status`, latestEvents.inside ? 'inside' : 'outside', true);
-                        }
-                    }),
-                );
-
-                promises.push(
-                    this.setObjectNotExistsAsync(
-                        `${objName}.rfid`,
-                        this.buildStateObject(petName ? `RFID for '${petName}'` : 'RFID', 'text', 'string'),
-                    ).then(() => this.setState(`${objName}.rfid`, rfidCode, true)),
-                );
-
-                for (let t = 0; t <= EVENT_TYPE_MAX; t++) {
-                    if (t in latestEvents) {
-                        promises.push(
-                            this.setLatestEventForRfidAndEventTypeToAdapter(
-                                `${objName}.${EVENT_TYPE_NAME[t]}`,
-                                EVENT_TYPE_NAME[t],
-                                latestEvents[t].eventIndex,
-                                rfidCode,
-                                petName,
+                    promises.push(
+                        this.setObjectNotExistsAsync(
+                            `${objName}.status`,
+                            this.buildStateObject(
+                                `status for ${petName ? `'${petName}'` : `pet with rfid '${rfidCode}'`}`,
+                                'indicator',
+                                'string',
                             ),
-                        );
-                    }
-                }
+                        ).then(() => {
+                            if ('inside' in latestEvents && latestEvents.inside !== undefined) {
+                                return this.setState(
+                                    `${objName}.status`,
+                                    latestEvents.inside ? 'inside' : 'outside',
+                                    true,
+                                );
+                            }
+                        }),
+                    );
 
-                Promise.all(promises)
-                    .then(() => resolve())
-                    .catch(error => {
-                        this.log.warn(`Could not set latest events for pet rfid (${error}).`);
-                        reject(error);
-                    });
-            }).catch(error => {
-                this.log.warn(`Could not set latest events for pet rfid (${error}).`);
-                reject(error);
-            });
+                    promises.push(
+                        this.setObjectNotExistsAsync(
+                            `${objName}.rfid`,
+                            this.buildStateObject(petName ? `RFID for '${petName}'` : 'RFID', 'text', 'string'),
+                        ).then(() => this.setState(`${objName}.rfid`, rfidCode, true)),
+                    );
+
+                    for (let t = 0; t <= EVENT_TYPE_MAX; t++) {
+                        if (t in latestEvents) {
+                            promises.push(
+                                this.setLatestEventForRfidAndEventTypeToAdapter(
+                                    `${objName}.${EVENT_TYPE_NAME[t]}`,
+                                    EVENT_TYPE_NAME[t],
+                                    latestEvents[t].eventIndex,
+                                    rfidCode,
+                                    petName,
+                                ),
+                            );
+                        }
+                    }
+
+                    Promise.all(promises)
+                        .then(() => resolve())
+                        .catch(error => {
+                            this.log.warn(`Could not set latest events for pet rfid (${error}).`);
+                            reject(error);
+                        });
+                })
+                .catch(error => {
+                    this.log.warn(`Could not set latest events for pet rfid (${error}).`);
+                    reject(error);
+                });
         });
     }
 
@@ -2461,7 +2483,8 @@ class Template extends utils.Adapter {
         const lessThanObj = lessThan.split('.');
         return (
             parseInt(versionObj[0]) < parseInt(lessThanObj[0]) ||
-            (parseInt(versionObj[0]) === parseInt(lessThanObj[0]) && parseInt(versionObj[1]) < parseInt(lessThanObj[1])) ||
+            (parseInt(versionObj[0]) === parseInt(lessThanObj[0]) &&
+                parseInt(versionObj[1]) < parseInt(lessThanObj[1])) ||
             (parseInt(versionObj[0]) === parseInt(lessThanObj[0]) &&
                 parseInt(versionObj[1]) === parseInt(lessThanObj[1]) &&
                 parseInt(versionObj[2]) < parseInt(lessThanObj[2]))
