@@ -53,7 +53,7 @@ class Template extends utils.Adapter {
         });
 
         this.api = new OnlyCatApi(this);
-        this.connectionStatusSubcription = undefined;
+        this.connectionStatusSubscription = undefined;
         this.userSubscription = undefined;
 
         // class variables
@@ -273,7 +273,7 @@ class Template extends utils.Adapter {
                     this.resetEventUpdateCounter();
                     this.clearConnectionStateSubscription();
                     this.clearUserSubscription();
-                    this.connectionStatusSubcription = this.api.connectionState$.subscribe(connectionState =>
+                    this.connectionStatusSubscription = this.api.connectionState$.subscribe(connectionState =>
                         this.onConnectionStateChange(connectionState),
                     );
                     this.userSubscription = this.api.user$.subscribe(user => this.onUserChange(user));
@@ -1232,6 +1232,10 @@ class Template extends utils.Adapter {
                         this.buildStateObject('Access token', 'text', 'string'),
                     ),
                     this.setObjectNotExistsAsync(
+                        `${objName}.deletedAt`,
+                        this.buildStateObject('Deleted at', 'date', 'string'),
+                    ),
+                    this.setObjectNotExistsAsync(
                         `${objName}.deviceId`,
                         this.buildStateObject('Device ID', 'text', 'string'),
                     ),
@@ -1242,6 +1246,14 @@ class Template extends utils.Adapter {
                     this.setObjectNotExistsAsync(
                         `${objName}.eventId`,
                         this.buildStateObject('Event ID', 'text', 'number'),
+                    ),
+                    this.setObjectNotExistsAsync(
+                        `${objName}.eventManualClassification`,
+                        this.buildStateObject('Event manual classification', 'text', 'number', true, EVENT_CLASSIFICATION),
+                    ),
+                    this.setObjectNotExistsAsync(
+                        `${objName}.eventManualClassificationUserId`,
+                        this.buildStateObject('Event manual classification user ID', 'text', 'number'),
                     ),
                     this.setObjectNotExistsAsync(
                         `${objName}.eventTriggerSource`,
@@ -1266,6 +1278,10 @@ class Template extends utils.Adapter {
                     this.setObjectNotExistsAsync(
                         `${objName}.timestamp`,
                         this.buildStateObject('Timestamp', 'date', 'string'),
+                    ),
+                    this.setObjectNotExistsAsync(
+                        `${objName}.link`,
+                        this.buildStateObject('Link to video', 'link', 'string'),
                     ),
                 );
 
@@ -1464,7 +1480,7 @@ class Template extends utils.Adapter {
                     })
                     .catch(error => {
                         this.log.warn(`Could not update all devices (${error}).`);
-                        return resolve();
+                        return reject(error);
                     });
             } else {
                 return reject(new Error(`no device data found.`));
@@ -1495,7 +1511,7 @@ class Template extends utils.Adapter {
                     })
                     .catch(error => {
                         this.log.warn(`Could not update devices (${error}).`);
-                        return resolve();
+                        return reject(error);
                     });
             } else {
                 return reject(new Error(`No device data found.`));
@@ -1522,13 +1538,13 @@ class Template extends utils.Adapter {
                     this.setState(`${objName}.description`, device.description_org, true),
                 );
                 if (device.timeZone) {
-                    this.setState(`${objName}.timeZone`, device.timeZone, true);
+                    promiseArray.push(this.setState(`${objName}.timeZone`, device.timeZone, true));
                 }
                 if (device.cursorId) {
-                    this.setState(`${objName}.cursorId`, device.cursorId, true);
+                    promiseArray.push(this.setState(`${objName}.cursorId`, device.cursorId, true));
                 }
                 if (device.deviceTransitPolicyId) {
-                    this.setState(`${objName}.control.deviceTransitPolicyId`, device.deviceTransitPolicyId, true);
+                    promiseArray.push(this.setState(`${objName}.control.deviceTransitPolicyId`, device.deviceTransitPolicyId, true));
                 } else {
                     this.log.silly(`No device transit policy ID found for device '${deviceId}'.`);
                 }
@@ -1560,7 +1576,7 @@ class Template extends utils.Adapter {
                     })
                     .catch(error => {
                         this.log.warn(`Could not update all states for device '${deviceId}' (${error}).`);
-                        return resolve();
+                        return reject(error);
                     });
             } else {
                 return reject(
@@ -1636,6 +1652,9 @@ class Template extends utils.Adapter {
             if ('accessToken' in event) {
                 this.setState(`${objName}.accessToken`, event.accessToken, true);
             }
+            if ('deletedAt' in event) {
+                this.setState(`${objName}.deletedAt`, event.deletedAt, true);
+            }
             if ('deviceId' in event) {
                 this.setState(`${objName}.deviceId`, event.deviceId, true);
             }
@@ -1644,6 +1663,12 @@ class Template extends utils.Adapter {
             }
             if ('eventId' in event) {
                 this.setState(`${objName}.eventId`, event.eventId, true);
+            }
+            if ('eventManualClassification' in event) {
+                this.setState(`${objName}.eventManualClassification`, event.eventManualClassification, true);
+            }
+            if ('eventManualClassificationUserId' in event) {
+                this.setState(`${objName}.eventManualClassificationUserId`, event.eventManualClassificationUserId, true);
             }
             if ('eventTriggerSource' in event) {
                 this.setState(`${objName}.eventTriggerSource`, event.eventTriggerSource, true);
@@ -1663,6 +1688,9 @@ class Template extends utils.Adapter {
             if ('timestamp' in event) {
                 this.setState(`${objName}.timestamp`, event.timestamp, true);
             }
+            if ('deviceId' in event && 'eventId' in event && 'accessToken' in event) {
+                this.setState(`${objName}.link`, 'https://onlycat.app/events/' + event.deviceId + '/' + event.eventId + '?t=' + event.accessToken, true);
+            }
         }
     }
 
@@ -1677,55 +1705,60 @@ class Template extends utils.Adapter {
      */
     setLatestEventsForRfidToAdapter(objName, latestEvents, rfidCode, petName) {
         return new Promise((resolve, reject) => {
-            this.setObjectNotExists(
+            this.setObjectNotExistsAsync(
                 objName,
                 this.buildFolderObject(
                     `status and latest events for ${petName ? `'${petName}'` : `pet with rfid '${rfidCode}'`}`,
                 ),
-                () => {
-                    const promiseArray = [];
-                    for (let t = 0; t <= EVENT_TYPE_MAX; t++) {
-                        if (t in latestEvents) {
-                            promiseArray.push(
-                                this.setLatestEventForRfidAndEventTypeToAdapter(
-                                    `${objName}.${EVENT_TYPE_NAME[t]}`,
-                                    EVENT_TYPE_NAME[t],
-                                    latestEvents[t].eventIndex,
-                                    rfidCode,
-                                    petName,
-                                ),
-                            );
-                        }
-                    }
-                    this.setObjectNotExists(
+            ).then(() => {
+                const promises = [];
+
+                promises.push(
+                    this.setObjectNotExistsAsync(
                         `${objName}.status`,
                         this.buildStateObject(
                             `status for ${petName ? `'${petName}'` : `pet with rfid '${rfidCode}'`}`,
                             'indicator',
                             'string',
                         ),
-                        () => {
-                            if ('inside' in latestEvents && latestEvents.inside !== undefined) {
-                                promiseArray.push(
-                                    this.setState(
-                                        `${objName}.status`,
-                                        latestEvents.inside ? 'inside' : 'outside',
-                                        true,
-                                    ),
-                                );
-                            }
-                            Promise.all(promiseArray)
-                                .then(() => {
-                                    return resolve();
-                                })
-                                .catch(error => {
-                                    this.log.warn(`Could not set latest events for pet rfid (${error}).`);
-                                    return reject();
-                                });
-                        },
-                    );
-                },
-            );
+                    ).then(() => {
+                        if ('inside' in latestEvents && latestEvents.inside !== undefined) {
+                            return this.setState(`${objName}.status`, latestEvents.inside ? 'inside' : 'outside', true);
+                        }
+                    }),
+                );
+
+                promises.push(
+                    this.setObjectNotExistsAsync(
+                        `${objName}.rfid`,
+                        this.buildStateObject(petName ? `RFID for '${petName}'` : 'RFID', 'text', 'string'),
+                    ).then(() => this.setState(`${objName}.rfid`, rfidCode, true)),
+                );
+
+                for (let t = 0; t <= EVENT_TYPE_MAX; t++) {
+                    if (t in latestEvents) {
+                        promises.push(
+                            this.setLatestEventForRfidAndEventTypeToAdapter(
+                                `${objName}.${EVENT_TYPE_NAME[t]}`,
+                                EVENT_TYPE_NAME[t],
+                                latestEvents[t].eventIndex,
+                                rfidCode,
+                                petName,
+                            ),
+                        );
+                    }
+                }
+
+                Promise.all(promises)
+                    .then(() => resolve())
+                    .catch(error => {
+                        this.log.warn(`Could not set latest events for pet rfid (${error}).`);
+                        reject(error);
+                    });
+            }).catch(error => {
+                this.log.warn(`Could not set latest events for pet rfid (${error}).`);
+                reject(error);
+            });
         });
     }
 
@@ -1967,15 +2000,13 @@ class Template extends utils.Adapter {
                                 this.events[e].eventClassification,
                             );
                             if (!(eventType in latestEvents[d][rfidCode])) {
-                                latestEvents[d][rfidCode][eventType] = this.events[e];
-                                latestEvents[d][rfidCode][eventType].eventIndex = e;
+                                latestEvents[d][rfidCode][eventType] = { ...this.events[e], eventIndex: e };
                             } else {
                                 if (
                                     new Date(latestEvents[d][rfidCode][eventType].timestamp) <
                                     new Date(this.events[e].timestamp)
                                 ) {
-                                    latestEvents[d][rfidCode][eventType] = this.events[e];
-                                    latestEvents[d][rfidCode][eventType].eventIndex = e;
+                                    latestEvents[d][rfidCode][eventType] = { ...this.events[e], eventIndex: e };
                                 }
                             }
                         }
@@ -2430,9 +2461,9 @@ class Template extends utils.Adapter {
         const lessThanObj = lessThan.split('.');
         return (
             parseInt(versionObj[0]) < parseInt(lessThanObj[0]) ||
-            (versionObj[0] === lessThanObj[0] && parseInt(versionObj[1]) < parseInt(lessThanObj[1])) ||
-            (versionObj[0] === lessThanObj[0] &&
-                versionObj[1] === lessThanObj[1] &&
+            (parseInt(versionObj[0]) === parseInt(lessThanObj[0]) && parseInt(versionObj[1]) < parseInt(lessThanObj[1])) ||
+            (parseInt(versionObj[0]) === parseInt(lessThanObj[0]) &&
+                parseInt(versionObj[1]) === parseInt(lessThanObj[1]) &&
                 parseInt(versionObj[2]) < parseInt(lessThanObj[2]))
         );
     }
@@ -2542,9 +2573,9 @@ class Template extends utils.Adapter {
      * Clears the connection state subscription
      */
     clearConnectionStateSubscription() {
-        if (this.connectionStatusSubcription !== undefined) {
-            this.connectionStatusSubcription.unsubscribe();
-            this.connectionStatusSubcription = undefined;
+        if (this.connectionStatusSubscription !== undefined) {
+            this.connectionStatusSubscription.unsubscribe();
+            this.connectionStatusSubscription = undefined;
         }
     }
 
