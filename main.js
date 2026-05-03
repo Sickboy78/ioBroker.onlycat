@@ -1703,7 +1703,7 @@ class Template extends utils.Adapter {
             if ('deviceId' in event && 'eventId' in event && 'accessToken' in event) {
                 this.setState(
                     `${objName}.link`,
-                    'https://onlycat.app/events/${event.deviceId}/${event.eventId}?t=${event.accessToken}',
+                    `https://onlycat.app/events/${event.deviceId}/${event.eventId}?t=${event.accessToken}`,
                     true,
                 );
             }
