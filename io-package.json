@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "onlycat",
-    "version": "0.5.4",
+    "version": "0.6.0",
     "news": {
+      "0.6.0": {
+        "en": "added link and other details to the event states",
+        "de": "Link und weitere Details zu den Ereignissen hinzugefügt",
+        "ru": "Слава Украины",
+        "pt": "adicionou a ligação e outros pormenores aos estados do evento",
+        "nl": "link en andere details toegevoegd aan de event states",
+        "fr": "ajout d'un lien et d'autres détails sur l'état de l'événement",
+        "it": "aggiunto il link e altri dettagli agli stati dell'evento",
+        "es": "añadido enlace y otros detalles a los estados del evento",
+        "pl": "Dodano link i inne szczegóły do stanu wydarzenia",
+        "uk": "додано посилання та інші деталі до станів подій",
+        "zh-cn": "在事件状态中添加了链接和其他详细信息"
+      },
       "0.5.4": {
         "en": "added removal of deleted or renamed devices and transit policies",
         "de": "Bereinigung von gelöschten oder umbenannten Geräten und Türrichtlinien hinzugefügt",
@@ -80,19 +93,6 @@
         "pl": "migracja do reguł iobroker eslint",
         "uk": "Перейшли на правила iobroker eslint",
         "zh-cn": "迁移到 iobroker eslint 规则"
-      },
-      "0.3.0": {
-        "en": "code improvements from review",
-        "de": "Codeverbesserungen vom Review",
-        "ru": "Слава Украины",
-        "pt": "melhorias do código de revisão",
-        "nl": "code verbeteringen na herziening",
-        "fr": "améliorations du code suite à la révision",
-        "it": "miglioramenti al codice dalla revisione",
-        "es": "mejoras en el código a partir de la revisión",
-        "pl": "poprawki kodu z przeglądu",
-        "uk": "покращення коду після перегляду",
-        "zh-cn": "审查后的代码改进"
       }
     },
     "titleLang": {

@@ -45,7 +45,7 @@ OnlyCat® is a registered trademarks of [VirtualV Trading Ltd.](https://www.only
   Placeholder for the next version (at the beginning of the line):
   ### **WORK IN PROGRESS**
 -->
-### **WORK IN PROGRESS**
+### 0.6.0 (2026-05-04)
 
 * (Sickboy78) added deletedAt, eventManualClassification, eventManualClassificationUserId and link states to events
 * (Sickboy78) added rfid code to pet state
