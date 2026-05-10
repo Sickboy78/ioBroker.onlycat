@@ -1226,6 +1226,7 @@ class Template extends utils.Adapter {
         return new Promise((resolve, reject) => {
             const promiseArray = [];
             this.setObjectNotExists(objName, this.buildFolderObject(description), () => {
+                // attributes from event
                 promiseArray.push(
                     this.setObjectNotExistsAsync(
                         `${objName}.accessToken`,
@@ -1285,6 +1286,13 @@ class Template extends utils.Adapter {
                         `${objName}.timestamp`,
                         this.buildStateObject('Timestamp', 'date', 'string'),
                     ),
+                );
+                // attributes generated
+                promiseArray.push(
+                    this.setObjectNotExistsAsync(
+                        `${objName}.image`,
+                        this.buildStateObject('Image from video', 'link', 'string'),
+                    ),
                     this.setObjectNotExistsAsync(
                         `${objName}.link`,
                         this.buildStateObject('Link to video', 'link', 'string'),
@@ -1302,24 +1310,6 @@ class Template extends utils.Adapter {
             });
         });
     }
-    /*
-	this.events = [
-					  {
-						  "globalId": 2238848,
-						  "deviceId": "OC-8C1F64481431",
-						  "eventId": 69,
-						  "timestamp": "2025-04-06T14:44:20.000Z",
-						  "frameCount": 133,
-						  "eventTriggerSource": 3,
-						  "eventClassification": 1,
-						  "posterFrameIndex": 4,
-						  "accessToken": "W5XlH_",
-						  "rfidCodes": [
-							  "276095611215361"
-						  ]
-					  }
-				  ];
-	 */
 
     /**
      * Creates pet hierarchy data structures in the adapter.
@@ -1699,6 +1689,13 @@ class Template extends utils.Adapter {
             }
             if ('timestamp' in event) {
                 this.setState(`${objName}.timestamp`, event.timestamp, true);
+            }
+            if ('deviceId' in event && 'eventId' in event) {
+                this.setState(
+                    `${objName}.image`,
+                    `https://gateway.onlycat.com/events/${event.deviceId}/${event.eventId}/${event.posterFrameIndex ?? 0}`,
+                    true,
+                );
             }
             if ('deviceId' in event && 'eventId' in event && 'accessToken' in event) {
                 this.setState(
