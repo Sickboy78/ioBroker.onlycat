@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "onlycat",
-    "version": "0.6.0",
+    "version": "0.6.1",
     "news": {
+      "0.6.1": {
+        "en": "added image to events",
+        "de": "Bild zu den Ereignissen hinzugefügt",
+        "ru": "Слава Украины",
+        "pt": "imagem adicionada aos eventos",
+        "nl": "afbeelding toegevoegd aan evenementen",
+        "fr": "ajout d'une image aux événements",
+        "it": "aggiunta immagine agli eventi",
+        "es": "imagen añadida a los eventos",
+        "pl": "Dodano obraz do wydarzeń",
+        "uk": "додали зображення до подій",
+        "zh-cn": "向活动添加了图片"
+      },
       "0.6.0": {
         "en": "added link and other details to the event states",
         "de": "Link und weitere Details zu den Ereignissen hinzugefügt",
@@ -80,19 +93,6 @@
         "pl": "dodano politykę tranzytową",
         "uk": "додано політику транзиту",
         "zh-cn": "新增过境政策"
-      },
-      "0.4.0": {
-        "en": "migrated to iobroker eslint rules",
-        "de": "zu ioBroker Eslint Regeln migriert",
-        "ru": "Слава Украины",
-        "pt": "migrou para as regras do iobroker eslint",
-        "nl": "gemigreerd naar iobroker eslint regels",
-        "fr": "migré vers iobroker eslint rules",
-        "it": "migrato alle regole di iobroker eslint",
-        "es": "migrado a las reglas eslint de iobroker",
-        "pl": "migracja do reguł iobroker eslint",
-        "uk": "Перейшли на правила iobroker eslint",
-        "zh-cn": "迁移到 iobroker eslint 规则"
       }
     },
     "titleLang": {
