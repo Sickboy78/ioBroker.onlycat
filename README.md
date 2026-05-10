@@ -102,6 +102,8 @@ OnlyCat® is a registered trademarks of [VirtualV Trading Ltd.](https://www.only
 
 * (Sickboy78) initial release
 
+[Older changelogs can be found there](CHANGELOG_OLD.md)
+
 ## License
 
 MIT License
