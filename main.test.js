@@ -122,3 +122,88 @@ describe('OnlyCat Adapter => getDevices()', () => {
         return adapter.getDevices().should.be.rejectedWith('network error');
     });
 });
+
+describe('OnlyCat Adapter => isVersionLessThan()', () => {
+    let adapter;
+
+    beforeEach(() => {
+        adapter = createAdapter({});
+    });
+
+    // invalid inputs
+    it('should return false when version is undefined', () => {
+        adapter.isVersionLessThan(undefined, '1.0.0').should.be.false;
+    });
+
+    it('should return false when version is null', () => {
+        adapter.isVersionLessThan(null, '1.0.0').should.be.false;
+    });
+
+    it('should return false when version is unknown', () => {
+        adapter.isVersionLessThan('unknown', '1.0.0').should.be.false;
+    });
+
+    it('should return false when version has less than 3 parts', () => {
+        adapter.isVersionLessThan('1.0', '1.0.0').should.be.false;
+    });
+
+    it('should return false when lessThan is undefined', () => {
+        adapter.isVersionLessThan('1.0.0', undefined).should.be.false;
+    });
+
+    it('should return false when lessThan is null', () => {
+        adapter.isVersionLessThan('1.0.0', null).should.be.false;
+    });
+
+    it('should return false when lessThan is unknown', () => {
+        adapter.isVersionLessThan('1.0.0', 'unknown').should.be.false;
+    });
+
+    it('should return false when lessThan has less than 3 parts', () => {
+        adapter.isVersionLessThan('1.0.0', '2.0').should.be.false;
+    });
+
+    // equal versions
+    it('should return false when versions are equal', () => {
+        adapter.isVersionLessThan('1.2.3', '1.2.3').should.be.false;
+    });
+
+    // major version comparison
+    it('should return true when major version is less', () => {
+        adapter.isVersionLessThan('1.9.9', '2.0.0').should.be.true;
+    });
+
+    it('should return false when major version is greater', () => {
+        adapter.isVersionLessThan('2.0.0', '1.9.9').should.be.false;
+    });
+
+    it('should handle double-digit major versions correctly', () => {
+        adapter.isVersionLessThan('9.0.0', '10.0.0').should.be.true;
+    });
+
+    // minor version comparison
+    it('should return true when minor version is less', () => {
+        adapter.isVersionLessThan('1.1.9', '1.2.0').should.be.true;
+    });
+
+    it('should return false when minor version is greater', () => {
+        adapter.isVersionLessThan('1.2.0', '1.1.9').should.be.false;
+    });
+
+    it('should handle double-digit minor versions correctly', () => {
+        adapter.isVersionLessThan('1.9.0', '1.10.0').should.be.true;
+    });
+
+    // patch version comparison
+    it('should return true when patch version is less', () => {
+        adapter.isVersionLessThan('1.2.3', '1.2.4').should.be.true;
+    });
+
+    it('should return false when patch version is greater', () => {
+        adapter.isVersionLessThan('1.2.4', '1.2.3').should.be.false;
+    });
+
+    it('should handle double-digit patch versions correctly', () => {
+        adapter.isVersionLessThan('1.0.9', '1.0.10').should.be.true;
+    });
+});

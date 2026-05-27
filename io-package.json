@@ -1,8 +1,34 @@
 {
   "common": {
     "name": "onlycat",
-    "version": "0.5.4",
+    "version": "0.6.1",
     "news": {
+      "0.6.1": {
+        "en": "added image to events",
+        "de": "Bild zu den Ereignissen hinzugefügt",
+        "ru": "Слава Украины",
+        "pt": "imagem adicionada aos eventos",
+        "nl": "afbeelding toegevoegd aan evenementen",
+        "fr": "ajout d'une image aux événements",
+        "it": "aggiunta immagine agli eventi",
+        "es": "imagen añadida a los eventos",
+        "pl": "Dodano obraz do wydarzeń",
+        "uk": "додали зображення до подій",
+        "zh-cn": "向活动添加了图片"
+      },
+      "0.6.0": {
+        "en": "added link and other details to the event states",
+        "de": "Link und weitere Details zu den Ereignissen hinzugefügt",
+        "ru": "Слава Украины",
+        "pt": "adicionou a ligação e outros pormenores aos estados do evento",
+        "nl": "link en andere details toegevoegd aan de event states",
+        "fr": "ajout d'un lien et d'autres détails sur l'état de l'événement",
+        "it": "aggiunto il link e altri dettagli agli stati dell'evento",
+        "es": "añadido enlace y otros detalles a los estados del evento",
+        "pl": "Dodano link i inne szczegóły do stanu wydarzenia",
+        "uk": "додано посилання та інші деталі до станів подій",
+        "zh-cn": "在事件状态中添加了链接和其他详细信息"
+      },
       "0.5.4": {
         "en": "added removal of deleted or renamed devices and transit policies",
         "de": "Bereinigung von gelöschten oder umbenannten Geräten und Türrichtlinien hinzugefügt",
@@ -67,32 +93,6 @@
         "pl": "dodano politykę tranzytową",
         "uk": "додано політику транзиту",
         "zh-cn": "新增过境政策"
-      },
-      "0.4.0": {
-        "en": "migrated to iobroker eslint rules",
-        "de": "zu ioBroker Eslint Regeln migriert",
-        "ru": "Слава Украины",
-        "pt": "migrou para as regras do iobroker eslint",
-        "nl": "gemigreerd naar iobroker eslint regels",
-        "fr": "migré vers iobroker eslint rules",
-        "it": "migrato alle regole di iobroker eslint",
-        "es": "migrado a las reglas eslint de iobroker",
-        "pl": "migracja do reguł iobroker eslint",
-        "uk": "Перейшли на правила iobroker eslint",
-        "zh-cn": "迁移到 iobroker eslint 规则"
-      },
-      "0.3.0": {
-        "en": "code improvements from review",
-        "de": "Codeverbesserungen vom Review",
-        "ru": "Слава Украины",
-        "pt": "melhorias do código de revisão",
-        "nl": "code verbeteringen na herziening",
-        "fr": "améliorations du code suite à la révision",
-        "it": "miglioramenti al codice dalla revisione",
-        "es": "mejoras en el código a partir de la revisión",
-        "pl": "poprawki kodu z przeglądu",
-        "uk": "покращення коду після перегляду",
-        "zh-cn": "审查后的代码改进"
       }
     },
     "titleLang": {
