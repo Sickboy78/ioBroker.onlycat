@@ -338,7 +338,7 @@ class Template extends utils.Adapter {
     /**
      * User change handler.
      *
-     * @param {any} user the new user
+     * @param {{id?: string}|undefined} user the new user
      */
     onUserChange(user) {
         if (user !== undefined) {
@@ -376,7 +376,7 @@ class Template extends utils.Adapter {
     /**
      * Handles received event updates.
      *
-     * @param {any} data the received event data
+     * @param {unknown} data the received event data
      */
     onEventUpdateReceived(data) {
         this.log.debug(`Received event update.`);
@@ -388,7 +388,7 @@ class Template extends utils.Adapter {
     /**
      * Handles received device updates.
      *
-     * @param {any} data the received device data
+     * @param {unknown} data the received device data
      */
     onDeviceUpdateReceived(data) {
         this.log.debug(`Received device update.`);
@@ -1711,7 +1711,7 @@ class Template extends utils.Adapter {
      * Creates and sets the latest events for a given pet rfid to the adapter.
      *
      * @param {string} objName the object name to create the events for
-     * @param {any} latestEvents the latest events
+     * @param {object} latestEvents the latest events
      * @param {string} rfidCode the rfid
      * @param {string} petName the pet name
      * @returns {Promise<void>}
@@ -1994,7 +1994,7 @@ class Template extends utils.Adapter {
     /**
      * Calculates the latest events per pet rfid.
      *
-     * @returns {any} an object with latest events per pet rfid
+     * @returns {object} an object with latest events per pet rfid
      */
     calculateLatestEvents() {
         const latestEvents = {};
