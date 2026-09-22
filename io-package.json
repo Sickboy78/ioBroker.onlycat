@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "onlycat",
-    "version": "0.6.2",
+    "version": "0.6.3",
     "news": {
+      "0.6.3": {
+        "en": "add node 26 to test matrix",
+        "de": "node 26 zur Testmatrix hinzugefügt",
+        "ru": "Слава Украины",
+        "pt": "teste a matriz node 26",
+        "nl": "node 26 aan de testmatrix toevoegen",
+        "fr": "ajoute node 26 au matrice de test",
+        "it": "aggiunga node 26  alla matrice di test",
+        "es": "añadir node 26 a la matriz de pruebas",
+        "pl": "dodaj node 26 do macierzy testowej",
+        "uk": "додати node 26 до тестової матриці",
+        "zh-cn": "将 node 26 添加到测试矩阵"
+      },
       "0.6.2": {
         "en": "dependency updates",
         "de": "Aktualisierungen der Abhängigkeiten",
@@ -80,19 +93,6 @@
         "pl": "aktualizacje zależności",
         "uk": "оновлення залежностей",
         "zh-cn": "依赖项更新"
-      },
-      "0.5.1": {
-        "en": "minor bugfix",
-        "de": "kleiner Bugfix",
-        "ru": "Слава Украины",
-        "pt": "correção de pequenos erros",
-        "nl": "kleine bugfix",
-        "fr": "correction de bug mineur",
-        "it": "correzione di bug minori",
-        "es": "corrección de errores menores",
-        "pl": "drobna poprawka błędu",
-        "uk": "незначне виправлення помилки",
-        "zh-cn": "次要错误修复"
       }
     },
     "titleLang": {

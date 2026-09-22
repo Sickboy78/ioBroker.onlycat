@@ -1,4 +1,9 @@
 # Older changes
+## 0.5.3 (2026-01-09)
+
+* (Sickboy78) dependency updates
+* (Sickboy78) add AlCalzone's Release Script
+
 ## 0.5.2 (2025-10-22)
 
 * (Sickboy78) dependency updates
