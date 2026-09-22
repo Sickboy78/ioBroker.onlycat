@@ -45,6 +45,12 @@ OnlyCat® is a registered trademarks of [VirtualV Trading Ltd.](https://www.only
   Placeholder for the next version (at the beginning of the line):
   ### **WORK IN PROGRESS**
 -->
+
+### **WORK IN PROGRESS**
+
+* (Sickboy78) dependency updates
+* (Sickboy78) add node.js 26 to test matrix
+
 ### 0.6.2 (2026-08-29)
 
 * (Sickboy78) dependency updates
